@@ -4,12 +4,7 @@ import {
   Tv,
   TrendingUp,
   Sparkles,
-  Play,
-  Star,
-  ArrowRight,
-  Globe,
-  Zap,
-  Shield
+  Star
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,30 +12,38 @@ import remarkGfm from "remark-gfm";
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [query, setQuery] = useState("");
+  const [type, setType] = useState("movie"); // ✅ added
+  const [loading, setLoading] = useState(false); // ✅ added
+  const [response, setResponse] = useState([]); // ✅ added
+  const messagesEndRef = useRef(null); // ✅ added
 
   const features = [
     {
       icon: Film,
       title: "Movie Reviews & Ratings",
-      description: "Get comprehensive reviews and TMDB ratings for the latest theatrical releases",
+      description:
+        "Get comprehensive reviews and TMDB ratings for the latest theatrical releases",
       gradient: "from-pink-500 to-red-500"
     },
     {
       icon: Tv,
       title: "OTT Platform Tracking",
-      description: "Track new releases across Netflix, Prime Video, Disney+, and more",
+      description:
+        "Track new releases across Netflix, Prime Video, Disney+, and more",
       gradient: "from-purple-500 to-violet-500"
     },
     {
       icon: TrendingUp,
       title: "Trending Entertainment",
-      description: "Stay updated with what's trending in movies and web series",
+      description:
+        "Stay updated with what's trending in movies and web series",
       gradient: "from-blue-500 to-cyan-500"
     },
     {
       icon: Sparkles,
       title: "AI-Powered Insights",
-      description: "Get intelligent recommendations and detailed entertainment analysis",
+      description:
+        "Get intelligent recommendations and detailed entertainment analysis",
       gradient: "from-emerald-500 to-green-500"
     }
   ];
@@ -55,16 +58,39 @@ export default function Home() {
     }
   ];
 
+  // ✅ define submit handler
+  const handleSubmit = async () => {
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setResponse([]);
+
+    try {
+      const res = await fetch(
+        `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`
+      );
+      const data = await res.json();
+      setResponse(data.movies || []);
+    } catch (err) {
+      console.error("Error fetching movies:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKeyPress = (e) => {
-          if (e.key === "Enter") {
-            handleSubmit();
-          }
-        };
+    if (e.key === "Enter") {
+      handleSubmit();
+    }
+  };
+
+  // ✅ scroll to bottom when response updates
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [response]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* ... your existing hero, services, features, stats sections (unchanged) ... */}
-
       {/* Search Section */}
       <div className="relative z-10 max-w-3xl mx-auto mt-12 mb-20 p-6 backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-xl">
         <div className="flex gap-2 mb-4">
