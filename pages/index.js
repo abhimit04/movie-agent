@@ -10,7 +10,7 @@ export default function Home() {
     setMovies([]);
 
     try {
-      const res = await fetch(`/api/movieAgent${query ? `?query=${encodeURIComponent(query)}` : ""}`);
+      const res = await fetch(`/api/movieAgents${query ? `?query=${encodeURIComponent(query)}` : ""}`);
       const data = await res.json();
       setMovies(Array.isArray(data) ? data : [data]);
     } catch (err) {
