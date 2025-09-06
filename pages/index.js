@@ -16,7 +16,7 @@ import remarkGfm from "remark-gfm";
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
-
+  const [query, setQuery] = useState("");
 
   const features = [
     {
