@@ -55,7 +55,11 @@ export default function Home() {
     }
   ];
 
-
+  const handleKeyPress = (e) => {
+          if (e.key === "Enter") {
+            handleSubmit();
+          }
+        };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
