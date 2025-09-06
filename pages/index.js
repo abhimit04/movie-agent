@@ -16,11 +16,7 @@ import remarkGfm from "remark-gfm";
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
-//  const [query, setQuery] = useState("");
-//  const [type, setType] = useState("movie"); // movie or tv
-//  const [response, setResponse] = useState([]);
-//  const [loading, setLoading] = useState(false);
-//  const messagesEndRef = useRef(null);
+
 
   const features = [
     {
@@ -59,36 +55,7 @@ export default function Home() {
     }
   ];
 
-//  const handleSubmit = async () => {
-//    if (!query.trim() && !type) return;
-//
-//    setLoading(true);
-//    setResponse([]);
-//
-//    try {
-//      const res = await fetch(`/api/movieAgent?query=${encodeURIComponent(query)}&type=${type}`);
-//      if (!res.ok) {
-//        throw new Error(`API error: ${res.status}`);
-//      }
-//      const data = await res.json();
-//      setResponse(data);
-//    } catch (err) {
-//      console.error(err);
-//      setResponse([{ title: "Error", description: "Failed to fetch results" }]);
-//    } finally {
-//      setLoading(false);
-//    }
-//  };
-//
-//  const handleKeyPress = (e) => {
-//    if (e.key === "Enter") {
-//      handleSubmit();
-//    }
-//  };
-//
-//  useEffect(() => {
-//    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-//  }, [response]);
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
