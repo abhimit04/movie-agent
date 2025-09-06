@@ -14,6 +14,10 @@ import {
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [query, setQuery] = useState("");
+  const [response, setResponse] = useState("");
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
   const features = [
     {
@@ -49,15 +53,53 @@ export default function Home() {
       icon: Film,
       link: "/movieAgent",
       color: "pink"
-    },
-    {
-      title: "Stock Market Advisor",
-      description: "Get AI-powered insights for Indian equity markets",
-      icon: TrendingUp,
-      link: "/stockTips",
-      color: "emerald"
     }
+//    {
+//      title: "Stock Market Advisor",
+//      description: "Get AI-powered insights for Indian equity markets",
+//      icon: TrendingUp,
+//      link: "/stockTips",
+//      color: "emerald"
+//    }
   ];
+  const handleSubmit = async () => {
+      if (!query.trim()) return;
+
+      setLoading(true);
+      setResponse("");
+
+      try {
+        const res = await fetch("/api/stockTips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`API error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        setResponse(data.markdown);
+
+      } catch (err) {
+        console.error(err);
+        setResponse("Sorry, there was an error processing your request. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter") {
+          handleSubmit();
+        }
+      };
+
+      useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [response]);
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
