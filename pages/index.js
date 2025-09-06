@@ -11,6 +11,9 @@ import {
   Zap,
   Shield
 } from "lucide-react";
+import { useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
