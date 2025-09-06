@@ -1,20 +1,37 @@
-// /pages/api/movieAgent.js
+// /pages/api/movieAgents.js (note: filename should match the endpoint)
 export default async function handler(req, res) {
-  const { query, type } = req.query; // type: "movie" | "tv"
+  // Only allow GET requests
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { query, type = 'movie' } = req.query;
+
+  // Validate required parameters
+  if (!query || !query.trim()) {
+    return res.status(400).json({ error: 'Query parameter is required' });
+  }
 
   const TMDB_API_KEY = process.env.TMDB_API_KEY;
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
   const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
   if (!TMDB_API_KEY || !TAVILY_API_KEY || !PERPLEXITY_API_KEY) {
+    console.error('Missing API keys:', {
+      TMDB: !!TMDB_API_KEY,
+      TAVILY: !!TAVILY_API_KEY,
+      PERPLEXITY: !!PERPLEXITY_API_KEY
+    });
     return res.status(500).json({ error: "Missing one or more API keys" });
   }
 
   try {
-    // 1️⃣ Tavily Search
-    let tavilyQuery = query
-      ? `Latest reviews and info about "${query}" ${type === "tv" ? "OTT series" : "movie"} released in India`
-      : `List of new ${type === "tv" ? "OTT shows" : "movies"} released in India this week`;
+    // 1️⃣ Tavily Search with better query construction
+    const tavilyQuery = `Latest reviews and info about "${query.trim()}" ${
+      type === "tv" ? "web series OTT show" : "movie"
+    } released in India 2024 2025`;
+
+    console.log('Tavily search query:', tavilyQuery);
 
     const tavilyRes = await fetch("https://api.tavily.com/search", {
       method: "POST",
@@ -22,100 +39,115 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${TAVILY_API_KEY}`,
       },
-      body: JSON.stringify({ query: tavilyQuery, max_results: 5 }),
-    });
-    const tavilyData = await tavilyRes.json();
-    const tavilyLinks = tavilyData.results?.map((r) => r.url) || [];
-
-    // 2️⃣ Perplexity - structured list
-    const perplexityListRes = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-      },
       body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          {
-            role: "system",
-            content: "You are an Indian entertainment tracker. Extract a JSON array of objects {title, description} for movies/OTT shows.",
-          },
-          {
-            role: "user",
-            content: `Summarise into 3–5 ${type === "tv" ? "OTT shows" : "movies"} released this week in India:\n${tavilyLinks.join("\n")}`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 600,
+        query: tavilyQuery,
+        max_results: 5,
+        search_depth: "basic",
+        include_domains: ["imdb.com", "rottentomatoes.com", "metacritic.com", "bollywoodhungama.com", "filmcompanion.in"]
       }),
     });
-    const perplexityListData = await perplexityListRes.json();
-    const parsedList = perplexityListData.choices?.[0]?.message?.content || "[]";
 
-    let releases = [];
-    try {
-      releases = JSON.parse(parsedList);
-    } catch {
-      releases = parsedList.split("\n").filter((l) => l.trim()).map((t) => ({ title: t }));
+    if (!tavilyRes.ok) {
+      throw new Error(`Tavily API error: ${tavilyRes.status}`);
     }
 
-    // 3️⃣ TMDB ratings + 4️⃣ Perplexity reviews
-    const enriched = await Promise.all(
-      releases.map(async (item) => {
-        let rating = null;
-        try {
-          const tmdbUrl =
-            type === "tv"
-              ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.title)}&region=IN`
-              : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.title)}&region=IN`;
-          const tmdbRes = await fetch(tmdbUrl);
-          const tmdbData = await tmdbRes.json();
-          if (tmdbData.results?.length) {
-            rating = tmdbData.results[0].vote_average;
-          }
-        } catch (e) {
-          console.error("TMDB fetch error:", e);
-        }
+    const tavilyData = await tavilyRes.json();
+    const tavilyResults = tavilyData.results || [];
+    const tavilyLinks = tavilyResults.map((r) => r.url);
+    const tavilyContent = tavilyResults.map((r) => r.content || '').join('\n');
 
-        let reviews_summary = "No reviews available";
-        try {
-          const reviewRes = await fetch("https://api.perplexity.ai/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+    console.log(`Found ${tavilyLinks.length} Tavily results`);
+
+    // 2️⃣ TMDB Search first to get accurate data
+    let tmdbData = null;
+    try {
+      const tmdbUrl = type === "tv"
+        ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&region=IN&language=en-US`
+        : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&region=IN&language=en-US`;
+
+      const tmdbRes = await fetch(tmdbUrl);
+      if (tmdbRes.ok) {
+        const tmdbResponse = await tmdbRes.json();
+        tmdbData = tmdbResponse.results?.[0] || null;
+      }
+    } catch (e) {
+      console.error("TMDB fetch error:", e.message);
+    }
+
+    // 3️⃣ Perplexity for review summary with better context
+    let reviewsSummary = "No reviews available";
+    try {
+      const reviewPrompt = tavilyContent
+        ? `Based on the following search results about "${query}", provide a concise review summary (max 200 words) covering plot, performances, direction, and overall reception:\n\n${tavilyContent.substring(0, 2000)}`
+        : `Provide a concise review summary for "${query}" ${type === "tv" ? "web series" : "movie"} including plot, performances, and critical reception`;
+
+      const reviewRes = await fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [
+            {
+              role: "system",
+              content: "You are a film critic. Provide concise, informative reviews focusing on plot, performances, direction, and audience reception. Keep responses under 200 words."
             },
-            body: JSON.stringify({
-              model: "sonar-pro",
-              messages: [
-                { role: "system", content: "You are a movie/OTT critic. Summarise reviews concisely, user-friendly." },
-                { role: "user", content: `Summarise reviews for "${item.title}" from:\n${tavilyLinks.join("\n")}` },
-              ],
-              temperature: 0.3,
-              max_tokens: 500,
-            }),
-          });
-          const reviewData = await reviewRes.json();
-          reviews_summary = reviewData.choices?.[0]?.message?.content || reviews_summary;
-        } catch (err) {
-          console.error("Review summary error:", err);
+            { role: "user", content: reviewPrompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 300,
+        }),
+      });
+
+      if (reviewRes.ok) {
+        const reviewData = await reviewRes.json();
+        const content = reviewData.choices?.[0]?.message?.content;
+        if (content && content.trim()) {
+          reviewsSummary = content.trim();
         }
+      }
+    } catch (err) {
+      console.error("Review summary error:", err.message);
+    }
 
-        return {
-          title: item.title,
-          description: item.description || "",
-          tmdb_rating: rating,
-          reviews_summary,
-          sources: tavilyLinks,
-        };
-      })
-    );
+    // 4️⃣ Construct response with proper fallbacks
+    const result = {
+      title: tmdbData?.title || tmdbData?.name || query,
+      description: tmdbData?.overview || "Description not available",
+      tmdb_rating: tmdbData?.vote_average || null,
+      release_date: tmdbData?.release_date || tmdbData?.first_air_date || null,
+      reviews_summary: reviewsSummary,
+      sources: tavilyLinks,
+      poster_path: tmdbData?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}` : null
+    };
 
-    // ✅ Wrap response in { movies: [] } for frontend compatibility
-    res.status(200).json({ movies: enriched });
+    // Validate result has meaningful data
+    if (!result.title || result.title.trim() === '') {
+      return res.status(404).json({
+        error: "No results found for the specified search query",
+        movies: []
+      });
+    }
+
+    console.log('Successfully processed query:', query);
+    res.status(200).json({ movies: [result] });
+
   } catch (error) {
     console.error("MovieAgent Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+
+    // Provide more specific error messages
+    let errorMessage = "Internal server error";
+    if (error.message.includes('fetch')) {
+      errorMessage = "Failed to fetch data from external services";
+    } else if (error.message.includes('API')) {
+      errorMessage = "External API error";
+    }
+
+    res.status(500).json({
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
