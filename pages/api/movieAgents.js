@@ -1,5 +1,4 @@
 // /pages/api/movieAgent.js
-
 export default async function handler(req, res) {
   const { query, type } = req.query; // type: "movie" | "tv"
 
@@ -113,7 +112,8 @@ export default async function handler(req, res) {
       })
     );
 
-    res.status(200).json(enriched);
+    // ✅ Wrap response in { movies: [] } for frontend compatibility
+    res.status(200).json({ movies: enriched });
   } catch (error) {
     console.error("MovieAgent Error:", error);
     res.status(500).json({ error: "Internal server error" });
