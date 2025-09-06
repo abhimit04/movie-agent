@@ -26,10 +26,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Tavily Search with better query construction
-    const tavilyQuery = `Latest reviews and info about "${query.trim()}" ${
+    // 1️⃣ Tavily Search for comprehensive information
+    const tavilyQuery = `"${query.trim()}" ${
       type === "tv" ? "web series OTT show" : "movie"
-    } released in India 2024 2025`;
+    } reviews ratings IMDB Rotten Tomatoes 2024 2025 India`;
 
     console.log('Tavily search query:', tavilyQuery);
 
@@ -41,9 +41,20 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         query: tavilyQuery,
-        max_results: 5,
-        search_depth: "basic",
-        include_domains: ["imdb.com", "rottentomatoes.com", "metacritic.com", "bollywoodhungama.com", "filmcompanion.in"]
+        max_results: 8,
+        search_depth: "advanced",
+        include_domains: [
+          "imdb.com",
+          "rottentomatoes.com",
+          "metacritic.com",
+          "bollywoodhungama.com",
+          "filmcompanion.in",
+          "indiatoday.in",
+          "hindustantimes.com",
+          "indianexpress.com",
+          "thehindu.com",
+          "firstpost.com"
+        ]
       }),
     });
 
@@ -54,33 +65,76 @@ export default async function handler(req, res) {
     const tavilyData = await tavilyRes.json();
     const tavilyResults = tavilyData.results || [];
     const tavilyLinks = tavilyResults.map((r) => r.url);
-    const tavilyContent = tavilyResults.map((r) => r.content || '').join('\n');
+    const tavilyContent = tavilyResults.map((r) => `${r.title}: ${r.content || ''}`).join('\n\n');
 
     console.log(`Found ${tavilyLinks.length} Tavily results`);
 
-    // 2️⃣ TMDB Search first to get accurate data
-    let tmdbData = null;
-    try {
-      const tmdbUrl = type === "tv"
-        ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&region=IN&language=en-US`
-        : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&region=IN&language=en-US`;
-
-      const tmdbRes = await fetch(tmdbUrl);
-      if (tmdbRes.ok) {
-        const tmdbResponse = await tmdbRes.json();
-        tmdbData = tmdbResponse.results?.[0] || null;
-      }
-    } catch (e) {
-      console.error("TMDB fetch error:", e.message);
+    if (tavilyResults.length === 0) {
+      return res.status(404).json({
+        error: "No information found for the specified search query",
+        movies: []
+      });
     }
 
-    // 3️⃣ Perplexity for review summary with better context
+    // 2️⃣ Perplexity Pro for structured data extraction
+    const dataExtractionRes = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert film data extractor. Extract structured information from search results and return ONLY a valid JSON object with this exact format:
+{
+  "title": "official title of the movie/show",
+  "description": "brief plot summary (50-100 words)",
+  "rating": "numerical rating if found (e.g., 7.2, 8.5)",
+  "rating_source": "source of rating (IMDB/Rotten Tomatoes/etc)",
+  "release_date": "release date if available",
+  "genre": "genre(s)",
+  "cast": "main cast members",
+  "director": "director name",
+  "platform": "streaming platform if OTT show"
+}`
+          },
+          {
+            role: "user",
+            content: `Extract structured data for "${query}" from these search results:\n\n${tavilyContent.substring(0, 4000)}`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 500,
+      }),
+    });
+
+    let movieData = {};
+    try {
+      if (dataExtractionRes.ok) {
+        const extractionResult = await dataExtractionRes.json();
+        const content = extractionResult.choices?.[0]?.message?.content || '{}';
+
+        // Clean up JSON response (remove markdown formatting if present)
+        const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        movieData = JSON.parse(cleanContent);
+      }
+    } catch (err) {
+      console.error("Data extraction parsing error:", err.message);
+      // Continue with fallback data
+      movieData = {
+        title: query,
+        description: "Information extracted from search results",
+        rating: null,
+        rating_source: null
+      };
+    }
+
+    // 3️⃣ Perplexity Pro for comprehensive review summary
     let reviewsSummary = "No reviews available";
     try {
-      const reviewPrompt = tavilyContent
-        ? `Based on the following search results about "${query}", provide a concise review summary (max 200 words) covering plot, performances, direction, and overall reception:\n\n${tavilyContent.substring(0, 2000)}`
-        : `Provide a concise review summary for "${query}" ${type === "tv" ? "web series" : "movie"} including plot, performances, and critical reception`;
-
       const reviewRes = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
         headers: {
@@ -92,12 +146,15 @@ export default async function handler(req, res) {
           messages: [
             {
               role: "system",
-              content: "You are a film critic. Provide concise, informative reviews focusing on plot, performances, direction, and audience reception. Keep responses under 200 words."
+              content: "You are a professional film critic. Analyze the provided information and write a comprehensive review summary covering plot, performances, direction, technical aspects, and critical/audience reception. Keep it informative yet engaging, around 150-200 words."
             },
-            { role: "user", content: reviewPrompt },
+            {
+              role: "user",
+              content: `Write a review summary for "${movieData.title || query}" based on these search results:\n\n${tavilyContent.substring(0, 3000)}`
+            }
           ],
           temperature: 0.3,
-          max_tokens: 300,
+          max_tokens: 400,
         }),
       });
 
@@ -112,15 +169,19 @@ export default async function handler(req, res) {
       console.error("Review summary error:", err.message);
     }
 
-    // 4️⃣ Construct response with proper fallbacks
+    // 4️⃣ Construct final response
     const result = {
-      title: tmdbData?.title || tmdbData?.name || query,
-      description: tmdbData?.overview || "Description not available",
-      tmdb_rating: tmdbData?.vote_average || null,
-      release_date: tmdbData?.release_date || tmdbData?.first_air_date || null,
+      title: movieData.title || query,
+      description: movieData.description || "Description not available",
+      rating: movieData.rating ? parseFloat(movieData.rating) : null,
+      rating_source: movieData.rating_source || null,
+      release_date: movieData.release_date || null,
+      genre: movieData.genre || null,
+      cast: movieData.cast || null,
+      director: movieData.director || null,
+      platform: movieData.platform || null,
       reviews_summary: reviewsSummary,
-      sources: tavilyLinks,
-      poster_path: tmdbData?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}` : null
+      sources: tavilyLinks
     };
 
     // Validate result has meaningful data
