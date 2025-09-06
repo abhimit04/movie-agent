@@ -54,7 +54,7 @@ export default function Home() {
       title: "Entertainment Hub",
       description: "Discover movies, OTT shows, and get detailed reviews",
       icon: Film,
-      link: "/movieAgent",
+      link: "/movieAgents",
       color: "pink"
     }
 //    {
@@ -72,7 +72,7 @@ export default function Home() {
       setResponse("");
 
       try {
-        const res = await fetch("/api/stockTips", {
+        const res = await fetch("/api/movieAgents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query }),
