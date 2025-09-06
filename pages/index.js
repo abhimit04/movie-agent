@@ -188,9 +188,7 @@ export default function Home() {
           {/* Results */}
           {!loading && response.length > 0 && (
             <div className="space-y-6">
-//              <h2 className="text-2xl font-bold text-white mb-4">
-//                Search Results ({response.length} found)
-//              </h2>
+
               {response.map((item, idx) => (
                 <div
                   key={idx}
