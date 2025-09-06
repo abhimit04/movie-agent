@@ -54,7 +54,7 @@ export default function Home() {
       title: "Entertainment Hub",
       description: "Discover movies, OTT shows, and get detailed reviews",
       icon: Film,
-      link: "/movieAgent",
+      link: "/movieAgents",
       color: "pink"
     }
   ];
