@@ -149,15 +149,15 @@ export default function Home() {
                 disabled={loading}
               />
             </div>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="px-4 py-4 rounded-xl bg-white/10 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[120px]"
-              disabled={loading}
-            >
-              <option value="movie">Movie</option>
-              <option value="tv">OTT Show</option>
-            </select>
+//            <select
+//              value={type}
+//              onChange={(e) => setType(e.target.value)}
+//              className="px-4 py-4 rounded-xl bg-white/10 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[120px]"
+//              disabled={loading}
+//            >
+//              <option value="movie">Movie</option>
+//              <option value="tv">OTT Show</option>
+//            </select>
             <button
               onClick={handleSubmit}
               disabled={loading || !query.trim()}
