@@ -1,76 +1,63 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Film,
   Tv,
-  Search,
-  Star,
-  Calendar,
-  Play,
   TrendingUp,
   Sparkles,
-  Clock,
-  ExternalLink,
-  ChevronRight,
-  ArrowLeft,
-  Home
+  Play,
+  Star,
+  ArrowRight,
+  Globe,
+  Zap,
+  Shield
 } from "lucide-react";
 
-export default function MovieAgent() {
-  const [activeTab, setActiveTab] = useState("movies");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [releases, setReleases] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchMode, setSearchMode] = useState(false);
+export default function Home() {
+  const [hoveredCard, setHoveredCard] = useState(null);
 
-  const fetchReleases = async (type, query = "") => {
-    setLoading(true);
-    try {
-      const url = query
-        ? `/api/movieAgent?query=${encodeURIComponent(query)}&type=${type}`
-        : `/api/movieAgent?type=${type}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-      setReleases(data);
-    } catch (error) {
-      console.error("Error fetching releases:", error);
-      setReleases([]);
-    } finally {
-      setLoading(false);
+  const features = [
+    {
+      icon: Film,
+      title: "Movie Reviews & Ratings",
+      description: "Get comprehensive reviews and TMDB ratings for the latest theatrical releases",
+      gradient: "from-pink-500 to-red-500"
+    },
+    {
+      icon: Tv,
+      title: "OTT Platform Tracking",
+      description: "Track new releases across Netflix, Prime Video, Disney+, and more",
+      gradient: "from-purple-500 to-violet-500"
+    },
+    {
+      icon: TrendingUp,
+      title: "Trending Entertainment",
+      description: "Stay updated with what's trending in movies and web series",
+      gradient: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: Sparkles,
+      title: "AI-Powered Insights",
+      description: "Get intelligent recommendations and detailed entertainment analysis",
+      gradient: "from-emerald-500 to-green-500"
     }
-  };
+  ];
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setSearchMode(true);
-      fetchReleases(activeTab === "movies" ? "movie" : "tv", searchQuery);
+  const services = [
+    {
+      title: "Entertainment Hub",
+      description: "Discover movies, OTT shows, and get detailed reviews",
+      icon: Film,
+      link: "/movieAgent",
+      color: "pink"
+    },
+    {
+      title: "Stock Market Advisor",
+      description: "Get AI-powered insights for Indian equity markets",
+      icon: TrendingUp,
+      link: "/stockTips",
+      color: "emerald"
     }
-  };
-
-  const handleQuickLoad = (type) => {
-    setActiveTab(type);
-    setSearchMode(false);
-    setSearchQuery("");
-    fetchReleases(type === "movies" ? "movie" : "tv");
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
-
-  const getRatingColor = (rating) => {
-    if (rating >= 8) return "text-green-400";
-    if (rating >= 6) return "text-yellow-400";
-    return "text-red-400";
-  };
-
-  const getRatingBg = (rating) => {
-    if (rating >= 8) return "bg-green-500/20 border-green-500/30";
-    if (rating >= 6) return "bg-yellow-500/20 border-yellow-500/30";
-    return "bg-red-500/20 border-red-500/30";
-  };
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -79,6 +66,7 @@ export default function MovieAgent() {
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
         <div className="absolute top-40 left-40 w-60 h-60 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+        <div className="absolute top-1/2 right-1/4 w-40 h-40 bg-emerald-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-1000"></div>
       </div>
 
       {/* Grid pattern overlay */}
@@ -90,240 +78,188 @@ export default function MovieAgent() {
       ></div>
 
       <div className="relative z-10 p-6 max-w-6xl mx-auto">
-        {/* Navigation */}
-        <div className="flex items-center gap-4 mb-8">
-          <button className="flex items-center gap-2 px-4 py-2 backdrop-blur-xl bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 text-white transition-all duration-300">
-            <Home className="w-4 h-4" />
-            <span className="hidden sm:inline">Home</span>
-          </button>
-          <ChevronRight className="w-4 h-4 text-gray-500" />
-          <span className="text-gray-300">Entertainment Hub</span>
-        </div>
-
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-pink-500 to-violet-500 rounded-2xl mb-4 shadow-lg">
-            <Film className="w-8 h-8 text-white" />
+        {/* Hero Section */}
+        <div className="text-center mb-16 pt-12">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 rounded-3xl mb-6 shadow-2xl">
+            <Sparkles className="w-10 h-10 text-white animate-pulse" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-pink-100 to-violet-200 bg-clip-text text-transparent mb-2">
-            Entertainment Hub
+
+          <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white via-purple-100 to-pink-200 bg-clip-text text-transparent mb-6 leading-tight">
+            AI-Powered
+            <br />
+            <span className="bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+              Intelligence Hub
+            </span>
           </h1>
-          <p className="text-gray-400 text-lg">Discover the latest movies, OTT shows & TV series</p>
-        </div>
 
-        {/* Quick Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <button
-            onClick={() => handleQuickLoad("movies")}
-            className="group backdrop-blur-xl bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 hover:border-white/20 p-6 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-pink-500/10"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-gradient-to-r from-pink-500 to-red-500 rounded-xl">
-                    <Film className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Movies This Week</h3>
-                </div>
-                <p className="text-gray-400">Latest theatrical releases and reviews</p>
-              </div>
-              <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-white transition-colors" />
-            </div>
-          </button>
+          <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+            Your ultimate destination for entertainment insights and market intelligence.
+            Powered by cutting-edge AI technology.
+          </p>
 
-          <button
-            onClick={() => handleQuickLoad("tv")}
-            className="group backdrop-blur-xl bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 hover:border-white/20 p-6 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-violet-500/10"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-xl">
-                    <Tv className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">OTT Releases</h3>
-                </div>
-                <p className="text-gray-400">New shows on Netflix, Prime, Disney+ & more</p>
-              </div>
-              <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-white transition-colors" />
-            </div>
-          </button>
-        </div>
-
-        {/* Search Section */}
-        <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-6 mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Search className="w-5 h-5 text-gray-400" />
-            <h2 className="text-xl font-bold text-white">Search Entertainment</h2>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Search for movies, TV shows, web series..."
-                className="w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
-                className="px-4 py-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-              >
-                <option value="movies" className="bg-slate-800">Movies</option>
-                <option value="tv" className="bg-slate-800">TV Shows/OTT</option>
-              </select>
-
-              <button
-                onClick={handleSearch}
-                disabled={loading || !searchQuery.trim()}
-                className={`px-6 py-4 rounded-2xl font-semibold text-white transition-all duration-300 ${
-                  loading || !searchQuery.trim()
-                    ? "bg-gray-600/50 cursor-not-allowed"
-                    : "bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 hover:scale-[1.02] shadow-lg"
-                }`}
-              >
-                {loading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Searching...
-                  </div>
-                ) : (
-                  "Search"
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Search Suggestions */}
-          <div className="mt-4">
-            <div className="flex flex-wrap gap-2">
-              {["Scam 1992", "The Family Man", "Sacred Games", "Arya", "RRR"].map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setSearchQuery(suggestion);
-                    setActiveTab(suggestion.includes("Family") || suggestion.includes("Sacred") ? "tv" : "movies");
-                  }}
-                  className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded-lg border border-white/10 hover:border-white/20 text-gray-300 hover:text-white transition-all duration-200"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="group px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl font-semibold text-white shadow-lg hover:shadow-pink-500/25 transition-all duration-300 hover:scale-[1.05] flex items-center justify-center gap-2">
+              Get Started
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button className="px-8 py-4 backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl font-semibold text-white hover:bg-white/20 transition-all duration-300 hover:scale-[1.05]">
+              Learn More
+            </button>
           </div>
         </div>
 
-        {/* Results Section */}
-        {releases.length > 0 && (
-          <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              <h2 className="text-xl font-bold text-white">
-                {searchMode ? `Search Results for "${searchQuery}"` :
-                 activeTab === "movies" ? "Latest Movies This Week" : "New OTT Releases This Week"}
-              </h2>
-              <div className="ml-auto text-sm text-gray-400">
-                {releases.length} results found
-              </div>
-            </div>
+        {/* Services Section */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Explore Our Services
+            </h2>
+            <p className="text-gray-400 text-lg">
+              Choose from our AI-powered platforms
+            </p>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {releases.map((item, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {services.map((service, index) => {
+              const IconComponent = service.icon;
+              return (
                 <div
                   key={index}
-                  className="group backdrop-blur-sm bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 hover:border-white/20 p-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl"
+                  className="group backdrop-blur-xl bg-white/5 hover:bg-white/10 rounded-3xl border border-white/10 hover:border-white/20 p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl cursor-pointer"
+                  onMouseEnter={() => setHoveredCard(index)}
+                  onMouseLeave={() => setHoveredCard(null)}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-bold text-white group-hover:text-purple-200 transition-colors line-clamp-2">
-                      {item.title}
-                    </h3>
-                    {item.tmdb_rating && (
-                      <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border ${getRatingBg(item.tmdb_rating)} flex-shrink-0 ml-2`}>
-                        <Star className={`w-3 h-3 ${getRatingColor(item.tmdb_rating)}`} />
-                        <span className={`text-sm font-semibold ${getRatingColor(item.tmdb_rating)}`}>
-                          {item.tmdb_rating.toFixed(1)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {item.description && (
-                    <p className="text-gray-400 text-sm mb-3 line-clamp-2">
-                      {item.description}
-                    </p>
-                  )}
-
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" />
-                      Reviews Summary
-                    </h4>
-                    <p className="text-gray-300 text-sm line-clamp-3">
-                      {item.reviews_summary}
-                    </p>
-                  </div>
-
-                  {item.sources && item.sources.length > 0 && (
-                    <div className="border-t border-white/10 pt-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">{item.sources.length} Sources Available</span>
-                        <div className="flex gap-1">
-                          {item.sources.slice(0, 3).map((source, idx) => (
-                            <a
-                              key={idx}
-                              href={source}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 bg-white/10 hover:bg-white/20 rounded-md transition-colors group/link"
-                              title={`Source ${idx + 1}`}
-                            >
-                              <ExternalLink className="w-3 h-3 text-gray-400 group-hover/link:text-white" />
-                            </a>
-                          ))}
-                          {item.sources.length > 3 && (
-                            <span className="px-2 py-1 bg-white/10 rounded-md text-xs text-gray-400">
-                              +{item.sources.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  <div className="flex items-start justify-between mb-6">
+                    <div className={`p-4 bg-gradient-to-r ${
+                      service.color === 'pink'
+                        ? 'from-pink-500 to-purple-500'
+                        : 'from-emerald-500 to-blue-500'
+                    } rounded-2xl shadow-lg group-hover:shadow-${service.color}-500/25 transition-all duration-300`}>
+                      <IconComponent className="w-8 h-8 text-white" />
                     </div>
-                  )}
+                    <ArrowRight className={`w-6 h-6 text-gray-400 group-hover:text-white transition-all duration-300 ${
+                      hoveredCard === index ? 'translate-x-1' : ''
+                    }`} />
+                  </div>
+
+                  <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-purple-200 transition-colors">
+                    {service.title}
+                  </h3>
+
+                  <p className="text-gray-400 text-lg leading-relaxed mb-6">
+                    {service.description}
+                  </p>
+
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${
+                    service.color === 'pink'
+                      ? 'from-pink-500/20 to-purple-500/20 border-pink-500/30'
+                      : 'from-emerald-500/20 to-blue-500/20 border-emerald-500/30'
+                  } border text-white font-medium`}>
+                    <Play className="w-4 h-4" />
+                    Launch App
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
-        {/* Empty State */}
-        {!loading && releases.length === 0 && !searchMode && (
-          <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-gray-500 to-gray-600 rounded-2xl mb-4">
-              <Film className="w-8 h-8 text-white opacity-50" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Ready to Discover</h3>
-            <p className="text-gray-400 mb-6">Click on "Movies This Week" or "OTT Releases" to get started, or search for specific content.</p>
+        {/* Features Section */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Powerful Features
+            </h2>
+            <p className="text-gray-400 text-lg">
+              Everything you need in one intelligent platform
+            </p>
           </div>
-        )}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl p-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-violet-500 rounded-2xl mb-4">
-              <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Fetching Entertainment</h3>
-            <p className="text-gray-400">Please wait while we gather the latest releases for you...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((feature, index) => {
+              const IconComponent = feature.icon;
+              return (
+                <div
+                  key={index}
+                  className="backdrop-blur-xl bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 hover:border-white/20 p-6 transition-all duration-300 hover:scale-[1.05] hover:shadow-xl text-center"
+                >
+                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${feature.gradient} rounded-xl mb-4 shadow-lg`}>
+                    <IconComponent className="w-6 h-6 text-white" />
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white mb-3">
+                    {feature.title}
+                  </h3>
+
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+
+        {/* Stats Section */}
+        <div className="backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 p-8 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                15K+
+              </div>
+              <div className="text-gray-400">Movies & Shows Tracked</div>
+              <div className="text-xs text-gray-500 mt-1">via TMDB API</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+                50+
+              </div>
+              <div className="text-gray-400">OTT Platforms Covered</div>
+              <div className="text-xs text-gray-500 mt-1">Netflix, Prime & more</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent mb-2">
+                AI
+              </div>
+              <div className="text-gray-400">Powered Reviews</div>
+              <div className="text-xs text-gray-500 mt-1">Perplexity & Tavily</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent mb-2">
+                24/7
+              </div>
+              <div className="text-gray-400">Real-time Updates</div>
+              <div className="text-xs text-gray-500 mt-1">Latest releases</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { icon: Globe, title: "Multi-Platform Coverage", desc: "Netflix, Prime, Disney+ & 50+ OTT platforms" },
+            { icon: Zap, title: "Real-time Updates", desc: "Weekly movie releases & instant search" },
+            { icon: Shield, title: "Trusted Data Sources", desc: "TMDB ratings, Perplexity & Tavily APIs" }
+          ].map(({ icon: Icon, title, desc }, index) => (
+            <div
+              key={index}
+              className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-6 text-center hover:bg-white/10 transition-all duration-300 hover:scale-[1.02]"
+            >
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl mb-4">
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-white font-bold mb-2">{title}</h3>
+              <p className="text-gray-400 text-sm">{desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <style jsx>{`
+        .animation-delay-1000 { animation-delay: 1s; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+      `}</style>
     </div>
   );
 }
