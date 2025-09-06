@@ -85,7 +85,7 @@ Return ONLY valid JSON with this format:
               {
                 role: "system",
                 content:
-                  "You are a film critic. Write a concise, 150-word review summary covering story, acting, direction, and audience reception.",
+                  "You are a film critic. Write a concise, 150-word review summary covering story, acting, direction, and audience reception. Ensure it is properly formatted and use markup",
               },
               {
                 role: "user",
