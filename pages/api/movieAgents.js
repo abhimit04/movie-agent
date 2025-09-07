@@ -51,7 +51,7 @@ async function handleWeeklyReleases(res, apiKey) {
               - bookmyshow.com
               - filmibeat.com
               - livemint.com
-From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to maximum 7-8 releases to fit within response limits. Do not include any text outside the JSON object:
+From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to only number of releases to fit within response limits. Do not include any text outside the JSON object:
 {
   "releases": [
     {
