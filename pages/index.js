@@ -395,19 +395,19 @@ export default function Home() {
                       ? "bg-purple-500 text-white"
                       : "text-gray-300 hover:text-white"
                   }`}
-                >
-                  Movies
-                </button>
-                <button
-                  onClick={() => setActiveTab("shows")}
-                  className={`px-6 py-2 font-medium transition-all ${
-                    activeTab === "shows"
-                      ? "bg-purple-500 text-white"
-                      : "text-gray-300 hover:text-white"
-                  }`}
-                >
-                  OTT Shows
-                </button>
+//                >
+//                  Movies
+//                </button>
+//                <button
+//                  onClick={() => setActiveTab("shows")}
+//                  className={`px-6 py-2 font-medium transition-all ${
+//                    activeTab === "shows"
+//                      ? "bg-purple-500 text-white"
+//                      : "text-gray-300 hover:text-white"
+//                  }`}
+//                >
+//                  OTT Shows
+//                </button>
               </div>
             </div>
 

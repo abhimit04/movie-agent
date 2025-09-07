@@ -51,27 +51,21 @@ async function handleWeeklyReleases(res, apiKey) {
               - bookmyshow.com
               - filmibeat.com
               - livemint.com
-From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to maximum 4-5 releases to fit within response limits. Do not include any text outside the JSON object:
+From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to maximum 7-8 releases to fit within response limits. Do not include any text outside the JSON object:
 {
   "releases": [
     {
       "title": "official title",
       "type": "movie" or "tv" or "OTT",
-      "platform": "theater/Netflix/Prime Video/Disney+/etc",
+      "platform": "theater/Netflix/Prime Video/JioHotstar/SonyLiv/etc",
       "release_date": "release date this week",
-      "genre": "genre(s)",
-      "description": "brief description",
-      "reference_sites": [
-        "IMDb link",
-        "Rotten Tomatoes link",
-        "BookMyShow link",
-        "Streaming platform link if applicable"
+      "genre": "genre(s)"
       ]
     }
   ]
 }
-Ensure the response is valid JSON only. Keep descriptions brief and limit reference_sites to 2-3 links maximum. Focus on the latest and popular releases only.
-Include reference sites where users can find more info like IMDb, Rotten Tomatoes, BookMyShow for theater releases, or streaming platform names. Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
+Ensure the response is valid JSON only. Focus on the latest and popular releases for the current week only.
+Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
           },
           {
             role: "user",
@@ -80,7 +74,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
           },
         ],
         temperature: 0.1,
-        max_tokens: 800,
+        max_tokens: 1200,
       }),
     });
 
@@ -213,7 +207,7 @@ Return ONLY valid JSON with this format:
           },
         ],
         temperature: 0.1,
-        max_tokens: 600,
+        max_tokens: 1200,
       }),
     }
   );
