@@ -1,5 +1,3 @@
-// /pages/api/movieAgents.js
-
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Tavily API helper
@@ -65,6 +63,14 @@ async function callGemini(prompt, systemPrompt = "") {
 
   const text = (await result.response).text();
   return text;
+}
+
+// Normalize array/string fields
+function safeJoin(value) {
+  if (!value) return null;
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object" && value.name) return value.name;
+  return String(value);
 }
 
 // Classify queries (LIST vs SPECIFIC)
@@ -181,10 +187,10 @@ async function handleSpecificQuery(res, query) {
       Title: ${knowledgeGraph.title}
       Description: ${knowledgeGraph.description}
       Release Date: ${knowledgeGraph.start_date || knowledgeGraph.year}
-      Genres: ${knowledgeGraph.genres?.join(', ') || 'N/A'}
-      Cast: ${knowledgeGraph.cast?.map(c => c.name).join(', ') || 'N/A'}
-      Director: ${knowledgeGraph.director?.join(', ') || 'N/A'}
-      Platforms: ${knowledgeGraph.streaming_platforms?.map(p => p.name).join(', ') || 'N/A'}
+      Genres: ${safeJoin(knowledgeGraph.genres)}
+      Cast: ${safeJoin(knowledgeGraph.cast?.map(c => c.name))}
+      Director: ${safeJoin(knowledgeGraph.director)}
+      Platforms: ${safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name))}
       Rating: ${serpResult.organic_results?.find(r => r.source?.toLowerCase().includes('imdb'))?.snippet || knowledgeGraph.rating}
 
       Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Use markdown for formatting.`;
@@ -195,10 +201,10 @@ async function handleSpecificQuery(res, query) {
       title: knowledgeGraph.title,
       description: knowledgeGraph.description,
       release_date: knowledgeGraph.start_date || knowledgeGraph.year,
-      genre: knowledgeGraph.genres?.join(', ') || null,
-      cast: knowledgeGraph.cast?.map(c => c.name).join(', ') || null,
-      director: knowledgeGraph.director?.join(', ') || null,
-      platform: knowledgeGraph.streaming_platforms?.map(p => p.name).join(', ') || null,
+      genre: safeJoin(knowledgeGraph.genres),
+      cast: safeJoin(knowledgeGraph.cast?.map(c => c.name)),
+      director: safeJoin(knowledgeGraph.director),
+      platform: safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name)),
       rating: knowledgeGraph.rating,
       reviews_summary: reviewSummary,
       type: "movie",
