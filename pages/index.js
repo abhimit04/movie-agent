@@ -30,7 +30,7 @@ export default function Home() {
       icon: Film,
       title: "Movie Reviews & Ratings",
       description:
-        "Get comprehensive reviews and TMDB ratings for the latest theatrical releases",
+        "Get comprehensive reviews and IMDB ratings for the latest theatrical releases",
       gradient: "from-pink-500 to-red-500"
     },
     {
@@ -57,37 +57,103 @@ export default function Home() {
   ];
 
   const suggestedQuestions = [
-    {
-      icon: Star,
-      question: "What's the IMDB rating of Stree 2?",
-      type: "movie"
-    },
-    {
-      icon: MessageSquare,
-      question: "Reviews for Mirzapur Season 3",
-      type: "tv"
-    },
+    // List queries - will use new list format
     {
       icon: Play,
-      question: "What new shows are on Netflix this month?",
-      type: "tv"
+      question: "Netflix shows this month",
+      type: "tv",
+      queryType: "list"
     },
     {
       icon: Film,
-      question: "Box office collection of Khel Khel Mein",
-      type: "movie"
+      question: "Top movies on Prime Video 2024",
+      type: "movie",
+      queryType: "list"
     },
     {
       icon: TrendingUp,
-      question: "Best rated web series on Amazon Prime",
-      type: "tv"
+      question: "Best web series on Hotstar",
+      type: "tv",
+      queryType: "list"
     },
     {
       icon: Calendar,
-      question: "Upcoming Bollywood releases this month",
-      type: "movie"
+      question: "New releases this week",
+      type: "movie",
+      queryType: "list"
+    },
+    // Specific queries - will get detailed reviews
+    {
+      icon: Star,
+      question: "Stree 2 movie review",
+      type: "movie",
+      queryType: "specific"
+    },
+    {
+      icon: MessageSquare,
+      question: "Mirzapur Season 3 analysis",
+      type: "tv",
+      queryType: "specific"
     }
   ];
+ const renderSuggestedQuestions = () => (
+   <section className="relative z-10 max-w-6xl mx-auto px-6 mb-16">
+     <div className="text-center mb-8">
+       <h2 className="text-3xl font-bold text-white mb-4">
+         Discover What's Trending
+       </h2>
+       <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+         Get instant recommendations or detailed analysis with our AI-powered entertainment search
+       </p>
+     </div>
+
+     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+       {suggestedQuestions.map((item, idx) => (
+         <button
+           key={idx}
+           onClick={() => handleSuggestedQuestion(item.question, item.type)}
+           className="p-5 rounded-xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 text-left group hover:scale-105 relative overflow-hidden"
+         >
+           {/* Query type indicator */}
+           <div className="absolute top-3 right-3">
+             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+               item.queryType === 'list'
+                 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                 : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+             }`}>
+               {item.queryType === 'list' ? 'Browse' : 'Analyze'}
+             </span>
+           </div>
+
+           <div className="flex items-center gap-3 mb-3">
+             <div className={`p-2 rounded-lg ${
+               item.queryType === 'list'
+                 ? 'bg-blue-500/20 text-blue-400'
+                 : 'bg-purple-500/20 text-purple-400'
+             } group-hover:scale-110 transition-transform`}>
+               <item.icon className="w-5 h-5" />
+             </div>
+             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+               {item.type === 'tv' ? 'TV Shows' : 'Movies'}
+             </span>
+           </div>
+
+           <p className="text-white group-hover:text-gray-100 transition-colors font-medium leading-relaxed">
+             {item.question}
+           </p>
+
+           {/* Subtle description */}
+           <p className="text-xs text-gray-500 mt-2">
+             {item.queryType === 'list'
+               ? 'Get curated recommendations'
+               : 'Deep dive with reviews & ratings'
+             }
+           </p>
+         </button>
+       ))}
+     </div>
+   </section>
+ );
 
   // Fetch weekly releases on component mount
   useEffect(() => {
