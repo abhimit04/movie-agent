@@ -147,7 +147,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
         }
       ]
     });
-
+}
 }
 
 async function handleSearchQuery(res, query, type, apiKey) {
