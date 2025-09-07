@@ -23,36 +23,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Query parameter is required" });
     }
 
-    // Determine if this is a list query or specific item query
-    const isListQuery = detectListQuery(query);
-
-    if (isListQuery) {
-      return await handleListQuery(res, query, type, PERPLEXITY_API_KEY);
-    } else {
-      return await handleSpecificSearchQuery(res, query, type, PERPLEXITY_API_KEY);
-    }
+    return await handleSearchQuery(res, query, type, PERPLEXITY_API_KEY);
   } catch (error) {
     console.error("MovieAgent Error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-}
-
-// Function to detect if query is asking for a list vs specific item
-function detectListQuery(query) {
-  const listKeywords = [
-    'shows in netflix', 'movies in netflix', 'shows on netflix', 'movies on netflix',
-    'shows in amazon', 'movies in amazon', 'shows on prime', 'movies on prime',
-    'shows in hotstar', 'movies in hotstar', 'shows on hotstar', 'movies on hotstar',
-    'top shows', 'top movies', 'best shows', 'best movies',
-    'new shows', 'new movies', 'latest shows', 'latest movies',
-    'upcoming shows', 'upcoming movies',
-    'this month', 'this week', 'recently added', 'new releases',
-    'trending shows', 'trending movies', 'popular shows', 'popular movies',
-    'shows to watch', 'movies to watch', 'recommended shows', 'recommended movies'
-  ];
-
-  const queryLower = query.toLowerCase();
-  return listKeywords.some(keyword => queryLower.includes(keyword));
 }
 
 async function handleWeeklyReleases(res, apiKey) {
@@ -197,126 +172,8 @@ Include both Bollywood/regional movies in theaters AND new OTT show/movie releas
   }
 }
 
-// New function to handle list-based queries (Netflix shows, top movies, etc.)
-async function handleListQuery(res, query, type, apiKey) {
-  try {
-    const listRes = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          {
-            role: "system",
-            content: `You are an Indian entertainment data extractor for list queries.
-              Perform a web search to get the most accurate and up-to-date information.
-Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to 8-12 items to fit within response limits. Do not include any text outside the JSON object:
-{
-  "releases": [
-    {
-      "title": "official title",
-      "type": "movie" or "tv",
-      "platform": "Netflix/Prime Video/JioHotstar/SonyLiv/Theaters/etc",
-      "release_date": "release date or year",
-      "genre": "genre(s)",
-      "rating": "IMDb rating if available"
-    }
-  ]
-}
-Ensure the response is valid JSON only. Focus on the most relevant and popular items based on the query.`,
-          },
-          {
-            role: "user",
-            content: query,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 1200,
-      }),
-    });
 
-    if (listRes.ok) {
-      const listData = await listRes.json();
-      let content = listData.choices?.[0]?.message?.content || '{"releases": []}';
-
-      content = content
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      try {
-        const parsedData = JSON.parse(content);
-        console.log("List query parsed data:", parsedData);
-        return res.status(200).json(parsedData);
-      } catch (parseError) {
-        console.error("JSON parse error for list query:", parseError);
-        console.error("Raw content that failed to parse:", content);
-
-        try {
-          // Fix common JSON formatting issues
-          let cleanedContent = content
-            .replace(/'/g, '"')
-            .replace(/(\w+):/g, '"$1":')
-            .replace(/,(\s*[}\]])/g, "$1")
-            .replace(/\n/g, " ")
-            .trim();
-
-          const parsedData = JSON.parse(cleanedContent);
-          console.log("Successfully parsed cleaned list JSON:", parsedData);
-          return res.status(200).json(parsedData);
-        } catch (secondParseError) {
-          console.error("Even cleaned list JSON failed to parse:", secondParseError);
-
-          // Return fallback list data based on query context
-          return res.status(200).json({
-            releases: [
-              {
-                title: "Sample Movie/Show 1",
-                type: type,
-                platform: "Netflix",
-                release_date: "2024",
-                genre: "Drama",
-                rating: "7.5"
-              },
-              {
-                title: "Sample Movie/Show 2",
-                type: type,
-                platform: "Prime Video",
-                release_date: "2024",
-                genre: "Action",
-                rating: "8.0"
-              }
-            ],
-          });
-        }
-      }
-    } else {
-      throw new Error("Failed to fetch list query results");
-    }
-  } catch (error) {
-    console.error("List query error:", error);
-
-    // Return basic fallback
-    return res.status(200).json({
-      releases: [
-        {
-          title: "Unable to fetch results",
-          type: type,
-          platform: "Various",
-          release_date: "N/A",
-          genre: "N/A",
-          rating: "N/A"
-        }
-      ],
-    });
-  }
-}
-
-// Renamed and kept for specific movie/show searches only
-async function handleSpecificSearchQuery(res, query, type, apiKey) {
+async function handleSearchQuery(res, query, type, apiKey) {
   // 1️⃣ Perplexity for structured details
   const detailsRes = await fetch(
     "https://api.perplexity.ai/chat/completions",
