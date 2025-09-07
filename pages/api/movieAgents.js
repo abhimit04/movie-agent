@@ -46,6 +46,12 @@ async function handleWeeklyReleases(res, apiKey) {
             {
               role: "system",
               content: `You are an Indian entertainment data extractor for this week's releases.
+              Perform a web search on primarliy the following sites to get the most accurate and up-to-date information:
+              - imdb.com
+              - rottentomatoes.com
+              - bookmyshow.com
+              - filmibeat.com
+              - livemint.com
 Return ONLY valid JSON with this exact format:
 {
   "releases": [
@@ -56,7 +62,7 @@ Return ONLY valid JSON with this exact format:
       "release_date": "release date this week",
       "genre": "genre(s)",
       "description": "brief description",
-      "sites": ["IMDb", "Rotten Tomatoes", "BookMyShow", "Filmibeat", "livemint"]
+        "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
     }
   ]
 }
