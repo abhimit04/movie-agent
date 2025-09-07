@@ -9,7 +9,8 @@ import {
   Calendar,
   Play,
   Clock,
-  MessageSquare
+  MessageSquare,
+  Home
 } from "lucide-react";
 
 export default function Home() {
@@ -174,6 +175,13 @@ export default function Home() {
     }, 100);
   };
 
+  const handleBackToHome = () => {
+    setQuery("");
+    setResponse([]);
+    setError("");
+    setType("movie");
+  };
+
   // Scroll to bottom when response updates
   useEffect(() => {
     if (response.length > 0) {
@@ -254,15 +262,6 @@ export default function Home() {
                 disabled={loading}
               />
             </div>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="px-4 py-4 rounded-xl bg-white/10 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[120px]"
-              disabled={loading}
-            >
-              <option value="movie">Movie</option>
-              <option value="tv">OTT Show</option>
-            </select>
             <button
               onClick={handleSubmit}
               disabled={loading || !query.trim()}
@@ -292,6 +291,17 @@ export default function Home() {
           {/* Results */}
           {!loading && response.length > 0 && (
             <div className="space-y-6">
+              {/* Back to Home Button */}
+              <div className="flex justify-center pb-4">
+                <button
+                  onClick={handleBackToHome}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 rounded-xl text-white font-semibold transition-all hover:scale-105 shadow-lg"
+                >
+                  <Home className="w-5 h-5" />
+                  Back to Home
+                </button>
+              </div>
+
               {response.map((item, idx) => (
                 <div
                   key={idx}
