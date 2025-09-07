@@ -1,5 +1,5 @@
 // /pages/api/movieAgents.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
 import { GoogleGenerativeAI } from "@google/genai";
 
 // Helper function to call the Tavily API
