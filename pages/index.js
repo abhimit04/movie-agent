@@ -10,7 +10,13 @@ import {
   Play,
   Clock,
   MessageSquare,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Share2,
+  Copy,
+  Twitter,
+  Facebook,
+  Link2,
+  Check
 } from "lucide-react";
 
 export default function Home() {
@@ -24,6 +30,11 @@ export default function Home() {
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("movies");
   const messagesEndRef = useRef(null);
+
+  // Share functionality state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareContent, setShareContent] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const features = [
     {
@@ -96,64 +107,274 @@ export default function Home() {
       queryType: "specific"
     }
   ];
- const renderSuggestedQuestions = () => (
-   <section className="relative z-10 max-w-6xl mx-auto px-6 mb-16">
-     <div className="text-center mb-8">
-       <h2 className="text-3xl font-bold text-white mb-4">
-         Discover What's Trending
-       </h2>
-       <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-         Get instant recommendations or detailed analysis with our AI-powered entertainment search
-       </p>
-     </div>
 
-     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-       {suggestedQuestions.map((item, idx) => (
-         <button
-           key={idx}
-           onClick={() => handleSuggestedQuestion(item.question, item.type)}
-           className="p-5 rounded-xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 text-left group hover:scale-105 relative overflow-hidden"
-         >
-           {/* Query type indicator */}
-           <div className="absolute top-3 right-3">
-             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-               item.queryType === 'list'
-                 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                 : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-             }`}>
-               {item.queryType === 'list' ? 'Browse' : 'Analyze'}
-             </span>
-           </div>
+  // Share functionality
+  const generateShareContent = (item) => {
+    const baseContent = {
+      title: item.title,
+      rating: item.rating,
+      platform: item.platform,
+      genre: item.genre,
+      url: `${window.location.origin}?search=${encodeURIComponent(item.title)}&type=${item.type || 'movie'}`
+    };
 
-           <div className="flex items-center gap-3 mb-3">
-             <div className={`p-2 rounded-lg ${
-               item.queryType === 'list'
-                 ? 'bg-blue-500/20 text-blue-400'
-                 : 'bg-purple-500/20 text-purple-400'
-             } group-hover:scale-110 transition-transform`}>
-               <item.icon className="w-5 h-5" />
-             </div>
-             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-               {item.type === 'tv' ? 'TV Shows' : 'Movies'}
-             </span>
-           </div>
+    // For specific movies with reviews
+    if (item.reviews_summary && item.reviews_summary !== "No reviews available") {
+      const cleanReview = item.reviews_summary
+        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
+        .replace(/\*(.*?)\*/g, '$1')     // Remove italic markdown
+        .replace(/#{1,3}\s*/g, '')       // Remove headers
+        .replace(/\n+/g, ' ')            // Replace newlines with spaces
+        .trim();
 
-           <p className="text-white group-hover:text-gray-100 transition-colors font-medium leading-relaxed">
-             {item.question}
-           </p>
+      return {
+        ...baseContent,
+        type: 'review',
+        shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} - ${cleanReview.substring(0, 100)}...`,
+        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Platform: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}\n\n📝 Review:\n${cleanReview}`,
+        hashtags: '#MovieReview #Entertainment #Movies'
+      };
+    }
+    // For list items
+    else {
+      return {
+        ...baseContent,
+        type: 'recommendation',
+        shortText: `Check out ${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} on ${item.platform || 'streaming'}`,
+        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Available on: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}${item.description ? `\n📖 ${item.description}` : ''}`,
+        hashtags: '#Movies #Streaming #Entertainment'
+      };
+    }
+  };
 
-           {/* Subtle description */}
-           <p className="text-xs text-gray-500 mt-2">
-             {item.queryType === 'list'
-               ? 'Get curated recommendations'
-               : 'Deep dive with reviews & ratings'
-             }
-           </p>
-         </button>
-       ))}
-     </div>
-   </section>
- );
+  const handleShare = (item) => {
+    const content = generateShareContent(item);
+    setShareContent(content);
+    setShareModalOpen(true);
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
+  const shareToSocial = (platform) => {
+    if (!shareContent) return;
+
+    let shareUrl = '';
+    const encodedText = encodeURIComponent(shareContent.shortText);
+    const encodedUrl = encodeURIComponent(shareContent.url);
+
+    switch (platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}&hashtags=${encodeURIComponent(shareContent.hashtags.replace(/#/g, '').replace(/\s/g, ','))}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`;
+        break;
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodedText}%20${encodedUrl}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
+        break;
+      default:
+        return;
+    }
+
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  };
+
+  // Share Modal Component
+  const ShareModal = () => {
+    if (!shareModalOpen || !shareContent) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-800 rounded-2xl border border-white/20 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-purple-400" />
+                Share Review
+              </h3>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
+              <h4 className="text-white font-semibold mb-2">{shareContent.title}</h4>
+              {shareContent.rating && (
+                <div className="flex items-center gap-1 mb-2">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="text-yellow-400">{shareContent.rating}</span>
+                </div>
+              )}
+              <p className="text-gray-300 text-sm">{shareContent.shortText}</p>
+            </div>
+
+            {/* Copy Full Text */}
+            <div className="mb-6">
+              <label className="block text-white font-medium mb-2">Full Text:</label>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-3">
+                <textarea
+                  value={shareContent.fullText}
+                  readOnly
+                  className="w-full bg-transparent text-gray-300 text-sm resize-none h-32 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={() => copyToClipboard(shareContent.fullText)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
+              >
+                {copySuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy Full Text
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Social Share Options */}
+            <div className="mb-6">
+              <label className="block text-white font-medium mb-3">Share to:</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => shareToSocial('twitter')}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-medium transition-colors"
+                >
+                  <Twitter className="w-4 h-4" />
+                  Twitter
+                </button>
+                <button
+                  onClick={() => shareToSocial('facebook')}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors"
+                >
+                  <Facebook className="w-4 h-4" />
+                  Facebook
+                </button>
+                <button
+                  onClick={() => shareToSocial('whatsapp')}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+                >
+                  💬 WhatsApp
+                </button>
+                <button
+                  onClick={() => shareToSocial('telegram')}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-400 hover:bg-blue-500 rounded-lg text-white font-medium transition-colors"
+                >
+                  ✈️ Telegram
+                </button>
+              </div>
+            </div>
+
+            {/* Copy Share Link */}
+            <div>
+              <label className="block text-white font-medium mb-2">Share Link:</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={shareContent.url}
+                  readOnly
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm focus:outline-none"
+                />
+                <button
+                  onClick={() => copyToClipboard(shareContent.url)}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white transition-colors"
+                >
+                  <Link2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSuggestedQuestions = () => (
+    <section className="relative z-10 max-w-6xl mx-auto px-6 mb-16">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-white mb-4">
+          Discover What's Trending
+        </h2>
+        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+          Get instant recommendations or detailed analysis with our AI-powered entertainment search
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {suggestedQuestions.map((item, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleSuggestedQuestion(item.question, item.type)}
+            className="p-5 rounded-xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 text-left group hover:scale-105 relative overflow-hidden"
+          >
+            {/* Query type indicator */}
+            <div className="absolute top-3 right-3">
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                item.queryType === 'list'
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+              }`}>
+                {item.queryType === 'list' ? 'Browse' : 'Analyze'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 rounded-lg ${
+                item.queryType === 'list'
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-purple-500/20 text-purple-400'
+              } group-hover:scale-110 transition-transform`}>
+                <item.icon className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                {item.type === 'tv' ? 'TV Shows' : 'Movies'}
+              </span>
+            </div>
+
+            <p className="text-white group-hover:text-gray-100 transition-colors font-medium leading-relaxed">
+              {item.question}
+            </p>
+
+            {/* Subtle description */}
+            <p className="text-xs text-gray-500 mt-2">
+              {item.queryType === 'list'
+                ? 'Get curated recommendations'
+                : 'Deep dive with reviews & ratings'
+              }
+            </p>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 
   // Fetch weekly releases on component mount
   useEffect(() => {
@@ -181,72 +402,71 @@ export default function Home() {
     }
   };
 
-  // Fixed submit handler with proper error handling
-// Updated handleSubmit function - replace your existing one
-const handleSubmit = async () => {
-  if (!query.trim()) {
-    setError("Please enter a search query");
-    return;
-  }
+  // Updated handleSubmit function
+  const handleSubmit = async () => {
+    if (!query.trim()) {
+      setError("Please enter a search query");
+      return;
+    }
 
-  setLoading(true);
-  setResponse([]);
-  setError("");
+    setLoading(true);
+    setResponse([]);
+    setError("");
 
-  try {
-    const res = await fetch(
-      `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    try {
+      const res = await fetch(
+        `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
-    );
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      console.log('API Response:', data); // Debug log
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Handle both response types: list queries (releases) and specific queries (movies)
+      let results = [];
+
+      if (data.releases) {
+        // List query response (Netflix shows, top movies, etc.)
+        results = data.releases;
+        console.log('List query results:', results.length);
+      } else if (data.movies) {
+        // Specific query response (individual movie details)
+        results = data.movies;
+        console.log('Specific query results:', results.length);
+      }
+
+      setResponse(results);
+
+      // Show search hints if available
+      if (data.search_hints && !data.search_hints.found_results) {
+        const suggestions = data.search_hints.suggestions.join(' • ');
+        setError(`Suggestions: ${suggestions}`);
+      }
+
+      if (results.length === 0) {
+        setError("No results found. Try a different search term.");
+      }
+
+    } catch (err) {
+      console.error("Error fetching movies:", err);
+      setError(`Failed to fetch results: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-
-    const data = await res.json();
-    console.log('API Response:', data); // Debug log
-
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    // Handle both response types: list queries (releases) and specific queries (movies)
-    let results = [];
-
-    if (data.releases) {
-      // List query response (Netflix shows, top movies, etc.)
-      results = data.releases;
-      console.log('List query results:', results.length);
-    } else if (data.movies) {
-      // Specific query response (individual movie details)
-      results = data.movies;
-      console.log('Specific query results:', results.length);
-    }
-
-    setResponse(results);
-
-    // Show search hints if available
-    if (data.search_hints && !data.search_hints.found_results) {
-      const suggestions = data.search_hints.suggestions.join(' • ');
-      setError(`Suggestions: ${suggestions}`);
-    }
-
-    if (results.length === 0) {
-      setError("No results found. Try a different search term.");
-    }
-
-  } catch (err) {
-    console.error("Error fetching movies:", err);
-    setError(`Failed to fetch results: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !loading) {
@@ -376,7 +596,7 @@ const handleSubmit = async () => {
             </div>
           )}
 
-          {/* Results */}
+          {/* Results with Share functionality */}
           {!loading && response.length > 0 && (
             <div className="space-y-6">
               {/* Back to Home Button */}
@@ -399,14 +619,24 @@ const handleSubmit = async () => {
                     <h3 className="text-xl font-bold text-white flex-1 pr-4">
                       {item.title}
                     </h3>
-                    {item.rating && (
-                      <div className="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-yellow-400 font-semibold">
-                          {typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {item.rating && (
+                        <div className="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                          <span className="text-yellow-400 font-semibold">
+                            {typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleShare(item)}
+                        className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-full text-purple-300 hover:text-purple-200 transition-all text-sm font-medium"
+                        title="Share this review"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </button>
+                    </div>
                   </div>
 
                   {/* Movie/Show Details */}
@@ -495,6 +725,7 @@ const handleSubmit = async () => {
                   }`}
                 >
                   OTT Shows
+
                 </button>
               </div>
             </div>
