@@ -387,28 +387,28 @@ export default function Home() {
                 <Calendar className="w-8 h-8 text-purple-400" />
                 This Week's Releases
               </h2>
-//              <div className="flex rounded-xl bg-white/10 border border-white/20 overflow-hidden">
-//                <button
-//                  onClick={() => setActiveTab("movies")}
-//                  className={`px-6 py-2 font-medium transition-all ${
-//                    activeTab === "movies"
-//                      ? "bg-purple-500 text-white"
-//                      : "text-gray-300 hover:text-white"
-//                  }`}
-//                >
-//                  Movies
-//                </button>
-//                <button
-//                  onClick={() => setActiveTab("shows")}
-//                  className={`px-6 py-2 font-medium transition-all ${
-//                    activeTab === "shows"
-//                      ? "bg-purple-500 text-white"
-//                      : "text-gray-300 hover:text-white"
-//                  }`}
-//                >
-//                  OTT Shows
-//                </button>
-//              </div>
+              <div className="flex rounded-xl bg-white/10 border border-white/20 overflow-hidden">
+                <button
+                  onClick={() => setActiveTab("movies")}
+                  className={`px-6 py-2 font-medium transition-all ${
+                    activeTab === "movies"
+                      ? "bg-purple-500 text-white"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Movies
+                </button>
+                <button
+                  onClick={() => setActiveTab("shows")}
+                  className={`px-6 py-2 font-medium transition-all ${
+                    activeTab === "shows"
+                      ? "bg-purple-500 text-white"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  OTT Shows
+                </button>
+              </div>
             </div>
 
             {weeklyLoading ? (
