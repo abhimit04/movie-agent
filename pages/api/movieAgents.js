@@ -56,7 +56,7 @@ From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use do
   "releases": [
     {
       "title": "official title",
-      "type": "movie" or "tv",
+      "type": "movie" or "tv" or "OTT",
       "platform": "theater/Netflix/Prime Video/Disney+/etc",
       "release_date": "release date this week",
       "genre": "genre(s)",
