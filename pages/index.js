@@ -10,7 +10,7 @@ import {
   Play,
   Clock,
   MessageSquare,
-  Home as HomeIcon
+  Home
 } from "lucide-react";
 
 export default function Home() {
@@ -297,7 +297,7 @@ export default function Home() {
                   onClick={handleBackToHome}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 rounded-xl text-white font-semibold transition-all hover:scale-105 shadow-lg"
                 >
-                  <Home className="w-5 h-5" />
+                  <HomeIcon className="w-5 h-5" />
                   Back to Home
                 </button>
               </div>
