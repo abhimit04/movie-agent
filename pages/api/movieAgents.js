@@ -56,7 +56,7 @@ Return ONLY valid JSON with this exact format:
       "release_date": "release date this week",
       "genre": "genre(s)",
       "description": "brief description",
-      "sites": ["IMDb", "Rotten Tomatoes", "BookMyShow", "Netflix", "Prime Video"]
+      "sites": ["IMDb", "Rotten Tomatoes", "BookMyShow", "Filmibeat", "livemint"]
     }
   ]
 }
