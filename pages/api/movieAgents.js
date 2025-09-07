@@ -244,7 +244,7 @@ Use **bold** for emphasis on key points and *italics* for movie/show titles. Wri
     console.error("Review summary error:", err.message);
   }
 
-  // 3️⃣ Final response with enhanced data structure
+  // 3️⃣ Final response with enhanced data structures
   const result = {
     title: movieData.title || query,
     description: movieData.description || "Description not available",
