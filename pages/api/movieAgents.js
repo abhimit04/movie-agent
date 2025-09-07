@@ -150,7 +150,7 @@ async function handleWeeklyReleases(res, page = 1, pageSize = 5) {
 
     const geminiResponse = await callGemini(geminiPrompt);
     const parsedData = safeParseJSON(geminiResponse) || { releases: [] };
-    setCache(cacheKey, parsedData, 10 * 60 * 1000); // 10 min
+    setCache(cacheKey, parsedData, 0.5 * 60 * 1000); // 10 min
     return res.status(200).json({ releases: paginateArray(parsedData.releases, page, pageSize) });
   } catch (error) {
     console.error("Weekly releases error:", error);
