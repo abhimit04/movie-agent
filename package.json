@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.11.0",
     "body-parser": "^2.2.0",
     "express": "^5.1.0",
