@@ -1,6 +1,7 @@
 {
   "name": "movie-agent",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
