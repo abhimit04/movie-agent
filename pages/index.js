@@ -10,7 +10,7 @@ import {
   Play,
   Clock,
   MessageSquare,
-  Home
+  Home as HomeIcon
 } from "lucide-react";
 
 export default function Home() {
