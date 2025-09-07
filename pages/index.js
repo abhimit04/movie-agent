@@ -31,7 +31,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("movies");
   const messagesEndRef = useRef(null);
 
-  // Share functionality
+  // Share functionality state
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareContent, setShareContent] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
