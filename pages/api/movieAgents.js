@@ -3,19 +3,21 @@
 import { GoogleGenerativeAI } from "@google/genai";
 
 // Helper function to call the Tavily API
+// Helper function to call the Tavily API
 async function callTavilyAPI(query) {
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
   if (!TAVILY_API_KEY) {
     throw new Error("Missing Tavily API key");
   }
 
-  const response = await fetch("https://api.tavily.com/v1/search", {
+  // Correct URL and headers for the Tavily Search API
+  const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${TAVILY_API_KEY}`, // Use Authorization header
     },
     body: JSON.stringify({
-      api_key: TAVILY_API_KEY,
       query: query,
       search_depth: "basic",
       include_answer: true,
@@ -25,7 +27,9 @@ async function callTavilyAPI(query) {
   });
 
   if (!response.ok) {
-    throw new Error(`Tavily API failed with status: ${response.status}`);
+    const errorDetails = await response.json().catch(() => ({}));
+    const errorMessage = errorDetails.detail || `Tavily API failed with status: ${response.status}`;
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
