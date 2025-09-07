@@ -85,24 +85,31 @@ Respond with ONLY one word: either "LIST_QUERY" or "SPECIFIC_QUERY"`,
   }
 }
 
-// Minimal fallback function as backup when AI classification fails
+// ✅ Improved fallback function
 function fallbackListDetection(query) {
   const queryLower = query.toLowerCase();
 
-  // Check for clear list indicators
+  // Strong list indicators
   const listIndicators = [
-    'shows', 'movies', 'top ', 'best ', 'new releases',
-    'netflix', 'amazon', 'prime', 'hotstar', 'this month',
-    'this week', 'recommendations', 'what to watch', 'trending'
+    "shows", "movies", "films",
+    "top", "best", "latest", "new", "popular",
+    "releases", "recommendations", "what to watch", "trending",
+    "this week", "this month", "this year", "upcoming",
+    "netflix", "prime", "amazon", "hotstar", "jiocinema", "sonyliv", "ott",
+    // genres often imply lists
+    "comedy", "action", "horror", "thriller", "romance", "sci-fi", "documentary"
   ];
 
-  const hasListIndicator = listIndicators.some(indicator => queryLower.includes(indicator));
+  const hasListIndicator = listIndicators.some(ind => queryLower.includes(ind));
 
-  // Check if it looks like a specific title (short and simple)
-  const looksLikeTitle = queryLower.length < 50 && !queryLower.includes('?') &&
-                        !queryLower.includes('what') && !queryLower.includes('which');
+  // Looks like a very specific single title if short & no list words
+  const looksLikeTitle =
+    queryLower.length < 50 &&
+    !hasListIndicator &&
+    !queryLower.includes("?") &&
+    !queryLower.includes("what") &&
+    !queryLower.includes("which");
 
-  // If it has list indicators and doesn't look like a specific title, it's probably a list query
   return hasListIndicator && !looksLikeTitle;
 }
 
