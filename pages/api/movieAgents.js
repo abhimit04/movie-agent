@@ -146,7 +146,8 @@ async function handleWeeklyReleases(res, page = 1, pageSize = 5) {
   try {
     const searchResult = await callTavilyAPI("new movie and OTT releases this week in India");
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
-    const geminiPrompt = `Summarize into JSON with format: { "releases": [ { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" } ] } Input: ${searchContent}`;
+    const geminiPrompt = ` Important : From the following search results, return only movies or shows released in the last 7 days in India. Summarize into JSON with format: { "releases": [ { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" } ] } Input: ${searchContent}`;
+
     const geminiResponse = await callGemini(geminiPrompt);
     const parsedData = safeParseJSON(geminiResponse) || { releases: [] };
     setCache(cacheKey, parsedData, 10 * 60 * 1000); // 10 min
