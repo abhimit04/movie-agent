@@ -47,6 +47,7 @@ async function handleWeeklyReleases(res, apiKey) {
               role: "system",
               content: `You are an Indian entertainment data extractor for this week's releases.
               Perform a web search on primarliy the following sites to get the most accurate and up-to-date information:
+              -google.com
               - imdb.com
               - rottentomatoes.com
               - bookmyshow.com
