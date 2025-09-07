@@ -488,6 +488,8 @@ export default function Home() {
     setResponse([]);
     setError("");
     setType("movie");
+    // Clear URL parameters
+    window.history.pushState({}, '', window.location.pathname);
   };
 
   // Scroll to bottom when response updates
