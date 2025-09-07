@@ -115,7 +115,7 @@ export default function Home() {
       rating: item.rating,
       platform: item.platform,
       genre: item.genre,
-      url: `${window.location.origin}?search=${encodeURIComponent(item.title)}&type=${item.type || 'movie'}`
+      url: `${window.location.origin}?search=${encodeURIComponent(item.title)}&type=${item.type || type}`
     };
 
     // For specific movies with reviews
@@ -210,7 +210,7 @@ export default function Home() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-purple-400" />
-                Share Review
+                Share {shareContent.type === 'review' ? 'Review' : 'Recommendation'}
               </h3>
               <button
                 onClick={() => setShareModalOpen(false)}
@@ -596,7 +596,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Results with Share functionality */}
+          {/* Results */}
           {!loading && response.length > 0 && (
             <div className="space-y-6">
               {/* Back to Home Button */}
@@ -725,7 +725,6 @@ export default function Home() {
                   }`}
                 >
                   OTT Shows
-
                 </button>
               </div>
             </div>
@@ -742,18 +741,30 @@ export default function Home() {
                 {filteredReleases.map((release, idx) => (
                   <div
                     key={idx}
-                    className="p-6 rounded-2xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                    className="p-6 rounded-2xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 cursor-pointer group"
                     onClick={() => handleSuggestedQuestion(release.title, release.type)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <h3 className="text-lg font-bold text-white pr-2 flex-1">
                         {release.title}
                       </h3>
-                      {release.type === "movie" ? (
-                        <Film className="w-5 h-5 text-pink-400 flex-shrink-0" />
-                      ) : (
-                        <Tv className="w-5 h-5 text-purple-400 flex-shrink-0" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {release.type === "movie" ? (
+                          <Film className="w-5 h-5 text-pink-400 flex-shrink-0" />
+                        ) : (
+                          <Tv className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(release);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-full text-purple-300 hover:text-purple-200 transition-all text-xs"
+                          title="Share this release"
+                        >
+                          <Share2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2 text-sm text-gray-400">
@@ -846,6 +857,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Share Modal */}
+      <ShareModal />
     </div>
   );
 }
