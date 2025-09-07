@@ -1,13 +1,253 @@
 // /pages/api/movieAgents.js
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Helper function to call the Tavily API
+async function callTavilyAPI(query) {
+  const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+  if (!TAVILY_API_KEY) {
+    throw new Error("Missing Tavily API key");
+  }
+
+  const response = await fetch("https://api.tavily.com/v1/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      api_key: TAVILY_API_KEY,
+      query: query,
+      search_depth: "basic",
+      include_answer: true,
+      include_images: false,
+      max_results: 5,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Tavily API failed with status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+// Helper function to call the SerpAPI
+async function callSerpAPI(query) {
+  const SERPAPI_KEY = process.env.SERPAPI_KEY;
+  if (!SERPAPI_KEY) {
+    throw new Error("Missing SerpAPI key");
+  }
+
+  const url = new URL("https://serpapi.com/search.json");
+  url.searchParams.append("engine", "google");
+  url.searchParams.append("q", query);
+  url.searchParams.append("api_key", SERPAPI_KEY);
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error(`SerpAPI failed with status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+// Helper function to call the Gemini API for summarization/classification
+async function callGemini(prompt, systemPrompt) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    throw new Error("Missing Gemini API key");
+  }
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+  const result = await model.generateContent({
+    contents: [{
+      role: "user",
+      parts: [{ text: systemPrompt + prompt }]
+    }],
+  });
+  const response = await result.response;
+  return response.text();
+}
+
+// New classification logic using Gemini
+async function classifyQuery(query) {
+  const systemPrompt = `Is this query asking for multiple items/recommendations (LIST) or info about one specific movie/show (SPECIFIC)?
+
+  Query: "${query}"
+
+  Reply with just one word: LIST or SPECIFIC`;
+
+  const result = await callGemini(systemPrompt, '');
+  return result.trim().toUpperCase() === "LIST";
+}
+
+// Handle weekly releases using Tavily and Gemini
+async function handleWeeklyReleases(res) {
+  console.log("Fetching weekly releases");
+  try {
+    const searchResult = await callTavilyAPI("new movie and OTT releases this week in India");
+    const searchContent = searchResult.results.map(r => r.content).join("\n\n");
+
+    const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
+
+      Search Results:
+      ${searchContent}
+
+      Return ONLY valid JSON with this format (no other text):
+      {
+        "releases": [
+          {
+            "title": "Movie/Show Title",
+            "type": "movie" or "tv",
+            "platform": "Netflix/Prime/Theaters/etc",
+            "release_date": "Date or Year",
+            "genre": "Genre"
+          }
+        ]
+      }`;
+
+    const geminiResponse = await callGemini(geminiPrompt, '');
+    const parsedData = JSON.parse(geminiResponse.replace(/```json\s*|```/g, "").trim());
+    return res.status(200).json(parsedData);
+  } catch (error) {
+    console.error("Weekly releases error:", error);
+    return res.status(200).json({
+      releases: [],
+      search_hints: {
+        found_results: false,
+        suggestions: ["Unable to fetch this week's releases. Please try again later."]
+      }
+    });
+  }
+}
+
+// Handle list queries using Tavily and Gemini
+async function handleListQuery(res, query) {
+  console.log(`Processing list query: "${query}"`);
+  try {
+    const searchResult = await callTavilyAPI(query);
+    const searchContent = searchResult.results.map(r => r.content).join("\n\n");
+
+    const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
+
+    Search Results:
+    ${searchContent}
+
+    Return ONLY valid JSON with this format (no other text):
+    {
+      "releases": [
+        {
+          "title": "Movie/Show Title",
+          "type": "movie" or "tv",
+          "platform": "Netflix/Prime/Theaters/etc",
+          "release_date": "Date or Year",
+          "genre": "Genre",
+          "rating": "Rating if available"
+        }
+      ]
+    }`;
+
+    const geminiResponse = await callGemini(geminiPrompt, '');
+    const parsedData = JSON.parse(geminiResponse.replace(/```json\s*|```/g, "").trim());
+
+    if (parsedData.releases && parsedData.releases.length > 0) {
+      return res.status(200).json(parsedData);
+    } else {
+      throw new Error("No list data received");
+    }
+  } catch (error) {
+    console.error("List query error:", error);
+    return res.status(200).json({
+      releases: [],
+      search_hints: {
+        found_results: false,
+        suggestions: [
+          "No results found. Try a different query.",
+          "Example searches: 'Netflix movies', 'top 10 shows'"
+        ]
+      }
+    });
+  }
+}
+
+// Handle specific queries using SerpAPI and Gemini
+async function handleSpecificQuery(res, query) {
+  console.log(`Processing specific query: "${query}"`);
+  try {
+    const serpResult = await callSerpAPI(query);
+    const knowledgeGraph = serpResult.knowledge_graph;
+    const relatedSearches = serpResult.related_searches?.map(s => s.query) || [];
+
+    if (!knowledgeGraph || !knowledgeGraph.title) {
+      return res.status(200).json({
+        movies: [],
+        search_hints: {
+          found_results: false,
+          suggestions: generateSpecificHints(query, "movie")
+        }
+      });
+    }
+
+    // Get a detailed summary from Gemini
+    const geminiSummaryPrompt = `Based on the following search result data, provide a comprehensive summary and review.
+
+      Search Result Data:
+      Title: ${knowledgeGraph.title}
+      Description: ${knowledgeGraph.description}
+      Release Date: ${knowledgeGraph.start_date || knowledgeGraph.year}
+      Genres: ${knowledgeGraph.genres?.join(', ') || 'N/A'}
+      Cast: ${knowledgeGraph.cast?.map(c => c.name).join(', ') || 'N/A'}
+      Director: ${knowledgeGraph.director?.join(', ') || 'N/A'}
+      Platforms: ${knowledgeGraph.streaming_platforms?.map(p => p.name).join(', ') || 'N/A'}
+      Rating: ${serpResult.organic_results?.find(r => r.source?.toLowerCase().includes('imdb'))?.snippet || knowledgeGraph.rating}
+
+      Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Use markdown for formatting.`;
+
+    const reviewSummary = await callGemini(geminiSummaryPrompt, '');
+
+    const result = {
+      title: knowledgeGraph.title,
+      description: knowledgeGraph.description,
+      release_date: knowledgeGraph.start_date || knowledgeGraph.year,
+      genre: knowledgeGraph.genres?.join(', ') || null,
+      cast: knowledgeGraph.cast?.map(c => c.name).join(', ') || null,
+      director: knowledgeGraph.director?.join(', ') || null,
+      platform: knowledgeGraph.streaming_platforms?.map(p => p.name).join(', ') || null,
+      rating: knowledgeGraph.rating,
+      reviews_summary: reviewSummary,
+      type: "movie",
+      search_hints: {
+        found_match: true,
+        confidence: "high",
+        suggestions: relatedSearches
+      }
+    };
+
+    return res.status(200).json({ movies: [result] });
+  } catch (error) {
+    console.error("Specific query error:", error);
+    return res.status(200).json({
+      movies: [],
+      search_hints: {
+        found_results: false,
+        suggestions: generateSpecificHints(query, "movie")
+      }
+    });
+  }
+}
+
+// Main handler function
 export default async function handler(req, res) {
-  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== "GET") {
@@ -19,48 +259,28 @@ export default async function handler(req, res) {
   console.log(`=== MovieAgent Request ===`);
   console.log(`Query: "${query}", Type: ${type}, Weekly: ${weekly}`);
 
-  const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-
-  if (!PERPLEXITY_API_KEY) {
-    console.error("Missing Perplexity API key");
-    return res.status(500).json({
-      error: "Missing Perplexity API key",
-      search_hints: {
-        found_results: false,
-        suggestions: ["API configuration issue - please contact support"]
-      }
-    });
-  }
-
   try {
-    // Handle weekly releases request
     if (weekly === "true") {
-      console.log("Processing weekly releases request");
-      return await handleWeeklyReleases(res, PERPLEXITY_API_KEY);
+      return await handleWeeklyReleases(res);
     }
 
-    // Handle regular search request
     if (!query || !query.trim()) {
       return res.status(400).json({
         error: "Query parameter is required",
         search_hints: {
           found_results: false,
-          suggestions: [
-            "Add a search query like 'Netflix shows' or 'Stree 2'",
-            "Try specific movie names or browsing queries"
-          ]
+          suggestions: ["Add a search query like 'Netflix shows' or 'Stree 2'"]
         }
       });
     }
 
-    // Simplified classification - start with basic logic
-    const isListQuery = await classifyQuery(query, PERPLEXITY_API_KEY);
+    const isListQuery = await classifyQuery(query);
     console.log(`Query "${query}" classified as: ${isListQuery ? 'LIST' : 'SPECIFIC'}`);
 
     if (isListQuery) {
-      return await handleListQuery(res, query, type, PERPLEXITY_API_KEY);
+      return await handleListQuery(res, query);
     } else {
-      return await handleSpecificQuery(res, query, type, PERPLEXITY_API_KEY);
+      return await handleSpecificQuery(res, query);
     }
 
   } catch (error) {
@@ -70,355 +290,9 @@ export default async function handler(req, res) {
       details: error.message,
       search_hints: {
         found_results: false,
-        suggestions: [
-          "Something went wrong - please try again",
-          "Check your internet connection",
-          "Try a different search term"
-        ]
+        suggestions: ["Something went wrong - please try again"]
       }
     });
-  }
-}
-
-// Simplified classification function
-async function classifyQuery(query, apiKey) {
-  try {
-    console.log(`Classifying query: "${query}"`);
-
-    // First try simple heuristics for speed
-    const simpleClassification = simpleClassify(query);
-    if (simpleClassification !== null) {
-      console.log(`Simple classification result: ${simpleClassification ? 'LIST' : 'SPECIFIC'}`);
-      return simpleClassification;
-    }
-
-    // Fall back to AI if unclear
-    console.log("Using AI classification");
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          {
-            role: "user",
-            content: `Is this query asking for multiple items/recommendations (LIST) or info about one specific movie/show (SPECIFIC)?
-
-Query: "${query}"
-
-Reply with just one word: LIST or SPECIFIC`
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 5,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const result = data.choices?.[0]?.message?.content?.trim().toUpperCase();
-      console.log(`AI classification result: ${result}`);
-      return result === "LIST";
-    }
-
-    console.log("AI classification failed, using fallback");
-    return simpleClassify(query) || false;
-
-  } catch (error) {
-    console.error("Classification error:", error);
-    return simpleClassify(query) || false;
-  }
-}
-
-// Simple rule-based classification
-function simpleClassify(query) {
-  const q = query.toLowerCase().trim();
-
-  // Clear list indicators
-  const listWords = [
-    'shows on', 'movies on', 'top ', 'best ', 'popular',
-    'netflix', 'prime', 'amazon', 'hotstar', 'jio',
-    'what to watch', 'recommendations', 'new releases',
-    'this month', 'this week', 'trending'
-  ];
-
-  if (listWords.some(word => q.includes(word))) {
-    return true; // LIST
-  }
-
-  // Clear specific indicators (short, no question words)
-  if (q.length < 50 && !q.includes('what') && !q.includes('which') && !q.includes('?')) {
-    return false; // SPECIFIC
-  }
-
-  return null; // Unclear, use AI
-}
-
-async function handleWeeklyReleases(res, apiKey) {
-  console.log("Fetching weekly releases");
-  try {
-    const response = await callPerplexityAPI(apiKey, `What are the new movie and OTT releases this week in India? Include both theatrical and streaming releases.`, 'weekly');
-
-    if (response && response.releases) {
-      return res.status(200).json(response);
-    } else {
-      throw new Error("No releases data received");
-    }
-
-  } catch (error) {
-    console.error("Weekly releases error:", error);
-    return res.status(200).json({
-      releases: [
-        {
-          title: "Unable to fetch current releases",
-          type: "movie",
-          platform: "Various",
-          release_date: "This week",
-          genre: "N/A"
-        }
-      ],
-      search_hints: {
-        found_results: false,
-        suggestions: [
-          "Unable to fetch this week's releases",
-          "Try searching for specific movies or shows",
-          "Check back later for updated releases"
-        ]
-      }
-    });
-  }
-}
-
-async function handleListQuery(res, query, type, apiKey) {
-  console.log(`Processing list query: "${query}"`);
-  try {
-    const response = await callPerplexityAPI(apiKey, query, 'list');
-
-    if (response && response.releases && response.releases.length > 0) {
-      // Add search hints if not present
-      if (!response.search_hints) {
-        response.search_hints = {
-          found_results: true,
-          suggestions: response.releases.length < 3 ?
-            ["Try more specific terms for better results"] :
-            response.releases.length > 8 ?
-            ["Great results! Try more specific terms to narrow down further"] :
-            []
-        };
-      }
-      console.log(`Returning ${response.releases.length} list results`);
-      return res.status(200).json(response);
-    } else {
-      throw new Error("No list data received");
-    }
-
-  } catch (error) {
-    console.error("List query error:", error);
-    return res.status(200).json({
-      releases: [
-        {
-          title: `No results found for "${query}"`,
-          type: type,
-          platform: "N/A",
-          release_date: "N/A",
-          genre: "N/A",
-          rating: "N/A"
-        }
-      ],
-      search_hints: {
-        found_results: false,
-        suggestions: [
-          "Check spelling of your search terms",
-          "Try broader terms like 'Netflix movies' or 'top shows'",
-          "Be more specific about platform or genre",
-          "Example searches: 'Netflix shows 2024', 'Prime Video movies'"
-        ]
-      }
-    });
-  }
-}
-
-async function handleSpecificQuery(res, query, type, apiKey) {
-  console.log(`Processing specific query: "${query}"`);
-  try {
-    // Get basic movie data
-    const movieData = await callPerplexityAPI(apiKey, `Find detailed information about the ${type} "${query}"`, 'specific');
-
-    if (!movieData || !movieData.title || movieData.title === query) {
-      // Poor match - return with hints
-      return res.status(200).json({
-        movies: [{
-          title: query,
-          description: "Movie/show not found or limited information available",
-          release_date: null,
-          genre: null,
-          cast: null,
-          director: null,
-          platform: null,
-          rating: null,
-          reviews_summary: "Cannot provide review - please verify the title and try again.",
-          type: type,
-          search_hints: {
-            found_match: false,
-            confidence: "low",
-            alternative_titles: [],
-            suggestions: generateSpecificHints(query, type)
-          }
-        }],
-        search_hints: {
-          found_results: false,
-          suggestions: generateSpecificHints(query, type)
-        }
-      });
-    }
-
-    // Get review only if we have good data
-    let reviewsSummary = "No reviews available";
-    try {
-      const reviewData = await callPerplexityAPI(apiKey, `Write a detailed review summary for "${movieData.title}" (${type})`, 'review');
-      if (reviewData && typeof reviewData === 'string') {
-        reviewsSummary = reviewData;
-      }
-    } catch (reviewError) {
-      console.error("Review error:", reviewError);
-    }
-
-    const result = {
-      title: movieData.title || query,
-      description: movieData.description || "Description not available",
-      release_date: movieData.release_date || null,
-      genre: movieData.genre || null,
-      cast: movieData.cast || null,
-      director: movieData.director || null,
-      platform: movieData.platform || null,
-      rating: movieData.rating || null,
-      reviews_summary: reviewsSummary,
-      type: type,
-      search_hints: {
-        found_match: true,
-        confidence: "high",
-        suggestions: []
-      }
-    };
-
-    return res.status(200).json({ movies: [result] });
-
-  } catch (error) {
-    console.error("Specific query error:", error);
-    return res.status(200).json({
-      movies: [{
-        title: query,
-        description: "Error processing search",
-        reviews_summary: "Unable to process search at this time",
-        search_hints: {
-          found_match: false,
-          confidence: "low",
-          suggestions: generateSpecificHints(query, type)
-        }
-      }]
-    });
-  }
-}
-
-// Unified Perplexity API caller
-async function callPerplexityAPI(apiKey, prompt, type) {
-  try {
-    let systemPrompt = "";
-    let maxTokens = 1200;
-
-    if (type === 'weekly' || type === 'list') {
-      systemPrompt = `Return ONLY valid JSON with this format (no other text):
-{
-  "releases": [
-    {
-      "title": "Movie/Show Title",
-      "type": "movie" or "tv",
-      "platform": "Netflix/Prime/Theaters/etc",
-      "release_date": "Date or Year",
-      "genre": "Genre",
-      "rating": "Rating if available"
-    }
-  ]
-}`;
-    } else if (type === 'specific') {
-      systemPrompt = `Return ONLY valid JSON (no other text):
-{
-  "title": "Official Title",
-  "description": "Brief plot summary",
-  "release_date": "Release date",
-  "genre": "Genres",
-  "cast": "Main cast",
-  "director": "Director",
-  "platform": "Platform or Theaters",
-  "rating": "IMDb rating"
-}`;
-    } else if (type === 'review') {
-      systemPrompt = `Write a comprehensive review summary in 200-250 words with markdown formatting. Focus on story, performances, direction, and audience reception.`;
-      maxTokens = 800;
-    }
-
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        temperature: type === 'review' ? 0.3 : 0.1,
-        max_tokens: maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content in response");
-    }
-
-    // For review type, return raw text
-    if (type === 'review') {
-      return content.trim();
-    }
-
-    // For JSON types, parse the response
-    content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-    try {
-      return JSON.parse(content);
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      console.error("Raw content:", content);
-
-      // Try to clean and parse again
-      const cleaned = content
-        .replace(/'/g, '"')
-        .replace(/(\w+):/g, '"$1":')
-        .replace(/,(\s*[}\]])/g, "$1");
-
-      try {
-        return JSON.parse(cleaned);
-      } catch (secondError) {
-        console.error("Even cleaned JSON failed:", secondError);
-        return null;
-      }
-    }
-
-  } catch (error) {
-    console.error("Perplexity API error:", error);
-    return null;
   }
 }
 
@@ -428,18 +302,12 @@ function generateSpecificHints(query, type) {
 
   if (q.length < 3) {
     hints.push("Search term too short - try the full movie/show name");
-  } else if (/^\d+$/.test(q)) {
-    hints.push("Try the full title instead of just numbers (e.g., 'Stree 2' not '2')");
   } else if (['movie', 'show', 'series'].includes(q)) {
     hints.push("Search term too generic - try a specific title");
   } else {
     hints.push("Check spelling of the movie/show name");
     hints.push(`Try adding the year if it's a recent ${type}`);
-    if (type === 'tv') {
-      hints.push("For TV shows, try adding 'series' or 'season'");
-    }
     hints.push("Make sure you have the correct title");
   }
-
   return hints;
 }
