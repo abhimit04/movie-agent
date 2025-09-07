@@ -32,28 +32,26 @@ export default async function handler(req, res) {
 
 async function handleWeeklyReleases(res, apiKey) {
   try {
-    const weeklyRes = await fetch(
-      "https://api.perplexity.ai/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "sonar-pro",
-          messages: [
-            {
-              role: "system",
-              content: `You are an Indian entertainment data extractor for this week's releases.
+    const weeklyRes = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "system",
+            content: `You are an Indian entertainment data extractor for this week's releases.
               Perform a web search on primarily the following sites to get the most accurate and up-to-date information:
-              -google.com
+              - google.com
               - imdb.com
               - rottentomatoes.com
               - bookmyshow.com
               - filmibeat.com
               - livemint.com
-From the search Return ONLY valid JSON with this exact format:
+From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. Do not include any text outside the JSON object:
 {
   "releases": [
     {
@@ -63,28 +61,38 @@ From the search Return ONLY valid JSON with this exact format:
       "release_date": "release date this week",
       "genre": "genre(s)",
       "description": "brief description",
-        "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
+      "reference_sites": [
+        "IMDb link",
+        "Rotten Tomatoes link",
+        "BookMyShow link",
+        "Streaming platform link if applicable"
+      ]
     }
   ]
 }
-
+Ensure the response is valid JSON only.
 Include reference sites where users can find more info like IMDb, Rotten Tomatoes, BookMyShow for theater releases, or streaming platform names. Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
-            },
-            {
-              role: "user",
-              content: "What movies and OTT shows are releasing this week in India? Include both theatrical releases and streaming platform releases.",
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 800,
-        }),
-      }
-    );
+          },
+          {
+            role: "user",
+            content:
+              "What movies and OTT shows are releasing this week in India? Include both theatrical releases and streaming platform releases.",
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 800,
+      }),
+    });
 
     if (weeklyRes.ok) {
       const weeklyData = await weeklyRes.json();
-      let content = weeklyData.choices?.[0]?.message?.content || '{"releases": []}';
-      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      let content =
+        weeklyData.choices?.[0]?.message?.content || '{"releases": []}';
+
+      content = content
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
 
       try {
         const parsedData = JSON.parse(content);
@@ -92,32 +100,52 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
         return res.status(200).json(parsedData);
       } catch (parseError) {
         console.error("JSON parse error for weekly releases:", parseError);
-        return res.status(200).json({
-          releases: [
-            {
-              title: "Stree 2",
-              type: "movie",
-              platform: "Theaters",
-              release_date: "August 2024",
-              genre: "Horror Comedy",
-              description: "Sequel to the hit horror-comedy Stree"
-            },
-            {
-              title: "IC 814: The Kandahar Hijack",
-              type: "tv",
-              platform: "Netflix",
-              release_date: "August 2024",
-              genre: "Thriller Drama",
-              description: "Netflix series based on the 1999 hijacking incident"
-            }
-          ]
-        });
+        console.error("Raw content that failed to parse:", content);
+
+        try {
+          // Fix common JSON formatting issues
+          let cleanedContent = content
+            .replace(/'/g, '"') // Replace single quotes with double quotes
+            .replace(/(\w+):/g, '"$1":') // Add quotes around unquoted keys
+            .replace(/,(\s*[}\]])/g, "$1") // Remove trailing commas
+            .replace(/\n/g, " ") // Remove newlines
+            .trim();
+
+          const parsedData = JSON.parse(cleanedContent);
+          console.log("Successfully parsed cleaned JSON:", parsedData);
+          return res.status(200).json(parsedData);
+        } catch (secondParseError) {
+          console.error("Even cleaned JSON failed to parse:", secondParseError);
+
+          return res.status(200).json({
+            releases: [
+              {
+                title: "Stree 2",
+                type: "movie",
+                platform: "Theaters",
+                release_date: "August 2024",
+                genre: "Horror Comedy",
+                description: "Sequel to the hit horror-comedy Stree",
+              },
+              {
+                title: "IC 814: The Kandahar Hijack",
+                type: "tv",
+                platform: "Netflix",
+                release_date: "August 2024",
+                genre: "Thriller Drama",
+                description:
+                  "Netflix series based on the 1999 hijacking incident",
+              },
+            ],
+          });
+        }
       }
     } else {
       throw new Error("Failed to fetch weekly releases");
     }
   } catch (error) {
     console.error("Weekly releases error:", error);
+
     // Return fallback data
     return res.status(200).json({
       releases: [
@@ -127,7 +155,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
           platform: "Theaters",
           release_date: "August 2024",
           genre: "Comedy Drama",
-          description: "Comedy starring Akshay Kumar"
+          description: "Comedy starring Akshay Kumar",
         },
         {
           title: "Phir Aayi Hasseen Dillruba",
@@ -135,7 +163,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
           platform: "Netflix",
           release_date: "August 2024",
           genre: "Romantic Thriller",
-          description: "Sequel to Haseen Dillruba on Netflix"
+          description: "Sequel to Haseen Dillruba on Netflix",
         },
         {
           title: "Mirzapur Season 3",
@@ -143,12 +171,13 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
           platform: "Amazon Prime Video",
           release_date: "July 2024",
           genre: "Crime Thriller",
-          description: "Continuation of the popular crime series"
-        }
-      ]
+          description: "Continuation of the popular crime series",
+        },
+      ],
     });
- }
+  }
 }
+
 
 async function handleSearchQuery(res, query, type, apiKey) {
   // 1️⃣ Perplexity for structured details
