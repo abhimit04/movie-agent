@@ -1,24 +1,20 @@
 // /pages/api/movieAgents.js
 
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Helper function to call the Tavily API
-// Helper function to call the Tavily API
+// Tavily API helper
 async function callTavilyAPI(query) {
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-  if (!TAVILY_API_KEY) {
-    throw new Error("Missing Tavily API key");
-  }
+  if (!TAVILY_API_KEY) throw new Error("Missing Tavily API key");
 
-  // Correct URL and headers for the Tavily Search API
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${TAVILY_API_KEY}`, // Use Authorization header
+      "Authorization": `Bearer ${TAVILY_API_KEY}`,
     },
     body: JSON.stringify({
-      query: query,
+      query,
       search_depth: "basic",
       include_answer: true,
       include_images: false,
@@ -28,20 +24,16 @@ async function callTavilyAPI(query) {
 
   if (!response.ok) {
     const errorDetails = await response.json().catch(() => ({}));
-    const errorMessage = errorDetails.detail || `Tavily API failed with status: ${response.status}`;
-    throw new Error(errorMessage);
+    throw new Error(errorDetails.detail || `Tavily API failed: ${response.status}`);
   }
 
-  const data = await response.json();
-  return data;
+  return response.json();
 }
 
-// Helper function to call the SerpAPI
+// SerpAPI helper
 async function callSerpAPI(query) {
   const SERPAPI_KEY = process.env.SERPAPI_KEY;
-  if (!SERPAPI_KEY) {
-    throw new Error("Missing SerpAPI key");
-  }
+  if (!SERPAPI_KEY) throw new Error("Missing SerpAPI key");
 
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.append("engine", "google");
@@ -49,74 +41,59 @@ async function callSerpAPI(query) {
   url.searchParams.append("api_key", SERPAPI_KEY);
 
   const response = await fetch(url.toString());
-
-  if (!response.ok) {
-    throw new Error(`SerpAPI failed with status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data;
+  if (!response.ok) throw new Error(`SerpAPI failed: ${response.status}`);
+  return response.json();
 }
+
+// Gemini setup
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
+
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-// Helper function to call the Gemini API for summarization/classification
-async function callGemini(prompt, systemPrompt) {
-
-  if (!GEMINI_API_KEY) {
-    throw new Error("Missing Gemini API key");
-  }
-
-
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-  const result = await model.generateContent({
-    contents: [{
-      role: "user",
-      parts: [{ text: systemPrompt + prompt }]
-    }],
-  });
-  const response = await result.response;
-  return response.text();
+function getGeminiModel() {
+  return genAI.getGenerativeModel({ model: "gemini-pro" });
 }
 
-// New classification logic using Gemini
+// Gemini helper
+async function callGemini(prompt, systemPrompt = "") {
+  const model = getGeminiModel();
+  const result = await model.generateContent({
+    contents: [
+      { role: "user", parts: [{ text: systemPrompt + prompt }] }
+    ],
+  });
+
+  const text = (await result.response).text();
+  return text;
+}
+
+// Classify queries (LIST vs SPECIFIC)
 async function classifyQuery(query) {
-  const systemPrompt = `Is this query asking for multiple items/recommendations (LIST) or info about one specific movie/show (SPECIFIC)?
+  const systemPrompt = `Is this query asking for multiple items/recommendations (LIST)
+or about one specific movie/show (SPECIFIC)?
+Query: "${query}"
+Reply with just one word: LIST or SPECIFIC`;
 
-  Query: "${query}"
-
-  Reply with just one word: LIST or SPECIFIC`;
-
-  const result = await callGemini(systemPrompt, '');
+  const result = await callGemini(systemPrompt);
   return result.trim().toUpperCase() === "LIST";
 }
 
-// Handle weekly releases using Tavily and Gemini
+// Weekly releases handler
 async function handleWeeklyReleases(res) {
-  console.log("Fetching weekly releases");
   try {
     const searchResult = await callTavilyAPI("new movie and OTT releases this week in India");
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
 
-    const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
+    const geminiPrompt = `Summarize into JSON with format:
+{
+  "releases": [
+    { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" }
+  ]
+}
+Input:
+${searchContent}`;
 
-      Search Results:
-      ${searchContent}
-
-      Return ONLY valid JSON with this format (no other text):
-      {
-        "releases": [
-          {
-            "title": "Movie/Show Title",
-            "type": "movie" or "tv",
-            "platform": "Netflix/Prime/Theaters/etc",
-            "release_date": "Date or Year",
-            "genre": "Genre"
-          }
-        ]
-      }`;
-
-    const geminiResponse = await callGemini(geminiPrompt, '');
+    const geminiResponse = await callGemini(geminiPrompt);
     const parsedData = JSON.parse(geminiResponse.replace(/```json\s*|```/g, "").trim());
     return res.status(200).json(parsedData);
   } catch (error) {
@@ -131,9 +108,8 @@ async function handleWeeklyReleases(res) {
   }
 }
 
-// Handle list queries using Tavily and Gemini
+// List queries
 async function handleListQuery(res, query) {
-  console.log(`Processing list query: "${query}"`);
   try {
     const searchResult = await callTavilyAPI(query);
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
