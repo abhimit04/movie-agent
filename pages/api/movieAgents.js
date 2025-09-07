@@ -55,12 +55,13 @@ Return ONLY valid JSON with this exact format:
       "platform": "theater/Netflix/Prime Video/Disney+/etc",
       "release_date": "release date this week",
       "genre": "genre(s)",
-      "description": "brief description"
+      "description": "brief description",
+      "sites": ["IMDb", "Rotten Tomatoes", "BookMyShow", "Netflix", "Prime Video"]
     }
   ]
 }
 
-Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
+Include reference sites where users can find more info like IMDb, Rotten Tomatoes, BookMyShow for theater releases, or streaming platform names. Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
             },
             {
               role: "user",
