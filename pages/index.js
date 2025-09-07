@@ -5,9 +5,12 @@ import {
   TrendingUp,
   Sparkles,
   Star,
-  Search
+  Search,
+  Calendar,
+  Play,
+  Clock,
+  MessageSquare
 } from "lucide-react";
-
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -16,6 +19,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState([]);
   const [error, setError] = useState("");
+  const [weeklyReleases, setWeeklyReleases] = useState([]);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("movies");
   const messagesEndRef = useRef(null);
 
   const features = [
@@ -48,6 +54,65 @@ export default function Home() {
       gradient: "from-emerald-500 to-green-500"
     }
   ];
+
+  const suggestedQuestions = [
+    {
+      icon: Star,
+      question: "What's the IMDB rating of Stree 2?",
+      type: "movie"
+    },
+    {
+      icon: MessageSquare,
+      question: "Reviews for Mirzapur Season 3",
+      type: "tv"
+    },
+    {
+      icon: Play,
+      question: "What new shows are on Netflix this month?",
+      type: "tv"
+    },
+    {
+      icon: Film,
+      question: "Box office collection of Khel Khel Mein",
+      type: "movie"
+    },
+    {
+      icon: TrendingUp,
+      question: "Best rated web series on Amazon Prime",
+      type: "tv"
+    },
+    {
+      icon: Calendar,
+      question: "Upcoming Bollywood releases this month",
+      type: "movie"
+    }
+  ];
+
+  // Fetch weekly releases on component mount
+  useEffect(() => {
+    fetchWeeklyReleases();
+  }, []);
+
+  const fetchWeeklyReleases = async () => {
+    setWeeklyLoading(true);
+    try {
+      const res = await fetch('/api/movieAgents?weekly=true', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setWeeklyReleases(data.releases || []);
+      }
+    } catch (err) {
+      console.error("Error fetching weekly releases:", err);
+    } finally {
+      setWeeklyLoading(false);
+    }
+  };
 
   // Fixed submit handler with proper error handling
   const handleSubmit = async () => {
@@ -100,6 +165,15 @@ export default function Home() {
     }
   };
 
+  const handleSuggestedQuestion = (question, questionType) => {
+    setQuery(question);
+    setType(questionType);
+    // Auto-submit after a brief delay to show the update
+    setTimeout(() => {
+      handleSubmit();
+    }, 100);
+  };
+
   // Scroll to bottom when response updates
   useEffect(() => {
     if (response.length > 0) {
@@ -113,6 +187,36 @@ export default function Home() {
       setError("");
     }
   }, [query]);
+
+  const renderReviewContent = (reviewText) => {
+    if (!reviewText || reviewText === "No reviews available") {
+      return <p className="text-gray-400">No reviews available</p>;
+    }
+
+    // Convert markdown-like formatting to HTML
+    const formatReview = (text) => {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-yellow-400">$1</em>')
+        .replace(/###\s*(.*?)$/gm, '<h3 class="text-lg font-semibold text-purple-300 mb-2">$1</h3>')
+        .replace(/##\s*(.*?)$/gm, '<h2 class="text-xl font-bold text-purple-300 mb-3">$1</h2>')
+        .replace(/\n\n/g, '</p><p class="mb-3">')
+        .replace(/\n/g, '<br/>');
+    };
+
+    return (
+      <div
+        className="prose prose-invert max-w-none text-gray-300"
+        dangerouslySetInnerHTML={{
+          __html: `<p class="mb-3">${formatReview(reviewText)}</p>`
+        }}
+      />
+    );
+  };
+
+  const filteredReleases = weeklyReleases.filter(item =>
+    activeTab === "movies" ? item.type === "movie" : item.type === "tv"
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -135,7 +239,7 @@ export default function Home() {
       </header>
 
       {/* Search Section */}
-      <div className="relative z-10 max-w-4xl mx-auto mb-20 p-6">
+      <div className="relative z-10 max-w-4xl mx-auto mb-12 p-6">
         <div className="backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 shadow-2xl p-8">
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
@@ -188,7 +292,6 @@ export default function Home() {
           {/* Results */}
           {!loading && response.length > 0 && (
             <div className="space-y-6">
-
               {response.map((item, idx) => (
                 <div
                   key={idx}
@@ -198,28 +301,62 @@ export default function Home() {
                     <h3 className="text-xl font-bold text-white flex-1 pr-4">
                       {item.title}
                     </h3>
-                    {item.tmdb_rating && (
+                    {item.rating && (
                       <div className="flex items-center gap-1 bg-yellow-500/20 px-3 py-1 rounded-full">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
                         <span className="text-yellow-400 font-semibold">
-                          {item.tmdb_rating.toFixed(1)}
+                          {typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating}
                         </span>
                       </div>
                     )}
                   </div>
 
+                  {/* Movie/Show Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+                    {item.release_date && (
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Calendar className="w-4 h-4" />
+                        <span>{item.release_date}</span>
+                      </div>
+                    )}
+                    {item.platform && (
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Play className="w-4 h-4" />
+                        <span>{item.platform}</span>
+                      </div>
+                    )}
+                    {item.genre && (
+                      <div className="text-gray-400">
+                        <span className="font-medium">Genre:</span> {item.genre}
+                      </div>
+                    )}
+                    {item.director && (
+                      <div className="text-gray-400">
+                        <span className="font-medium">Director:</span> {item.director}
+                      </div>
+                    )}
+                  </div>
+
                   {item.description && (
-                    <p className="text-gray-300 mb-3 leading-relaxed">
+                    <p className="text-gray-300 mb-4 leading-relaxed">
                       {item.description}
                     </p>
                   )}
 
+                  {item.cast && (
+                    <div className="mb-4">
+                      <span className="text-white font-medium">Cast: </span>
+                      <span className="text-gray-300">{item.cast}</span>
+                    </div>
+                  )}
+
                   {item.reviews_summary && item.reviews_summary !== "No reviews available" && (
                     <div className="text-gray-400 leading-relaxed bg-white/5 p-4 rounded-lg border border-white/10">
-                      <h4 className="text-white font-semibold mb-2">Reviews Summary:</h4>
-                      <div className="prose prose-invert max-w-none">
-                        {item.reviews_summary}
-                      </div>
+                      <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Reviews Summary:
+                      </h4>
+                      {renderReviewContent(item.reviews_summary)}
                     </div>
                   )}
                 </div>
@@ -230,6 +367,125 @@ export default function Home() {
           <div ref={messagesEndRef}></div>
         </div>
       </div>
+
+      {/* This Week's Releases Section */}
+      {!response.length && !loading && (
+        <section className="relative z-10 max-w-6xl mx-auto px-6 mb-16">
+          <div className="backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 shadow-2xl p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                <Calendar className="w-8 h-8 text-purple-400" />
+                This Week's Releases
+              </h2>
+              <div className="flex rounded-xl bg-white/10 border border-white/20 overflow-hidden">
+                <button
+                  onClick={() => setActiveTab("movies")}
+                  className={`px-6 py-2 font-medium transition-all ${
+                    activeTab === "movies"
+                      ? "bg-purple-500 text-white"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Movies
+                </button>
+                <button
+                  onClick={() => setActiveTab("shows")}
+                  className={`px-6 py-2 font-medium transition-all ${
+                    activeTab === "shows"
+                      ? "bg-purple-500 text-white"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  OTT Shows
+                </button>
+              </div>
+            </div>
+
+            {weeklyLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center gap-3 text-gray-300">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
+                  <span>Loading this week's releases...</span>
+                </div>
+              </div>
+            ) : filteredReleases.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredReleases.map((release, idx) => (
+                  <div
+                    key={idx}
+                    className="p-6 rounded-2xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                    onClick={() => handleSuggestedQuestion(release.title, release.type)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-lg font-bold text-white pr-2 flex-1">
+                        {release.title}
+                      </h3>
+                      {release.type === "movie" ? (
+                        <Film className="w-5 h-5 text-pink-400 flex-shrink-0" />
+                      ) : (
+                        <Tv className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                      )}
+                    </div>
+
+                    <div className="space-y-2 text-sm text-gray-400">
+                      {release.platform && (
+                        <div className="flex items-center gap-2">
+                          <Play className="w-3 h-3" />
+                          <span>{release.platform}</span>
+                        </div>
+                      )}
+                      {release.release_date && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3" />
+                          <span>{release.release_date}</span>
+                        </div>
+                      )}
+                      {release.genre && (
+                        <div className="text-gray-300 text-xs bg-white/5 px-2 py-1 rounded-full inline-block">
+                          {release.genre}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-400">
+                <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No releases found for this week.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Suggested Questions Section */}
+      {!response.length && !loading && (
+        <section className="relative z-10 max-w-6xl mx-auto px-6 mb-16">
+          <h2 className="text-3xl font-bold text-center text-white mb-8">
+            Try These Popular Searches
+          </h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {suggestedQuestions.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSuggestedQuestion(item.question, item.type)}
+                className="p-4 rounded-xl bg-white/5 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 text-left group hover:scale-105"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <item.icon className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
+                  <span className="text-xs font-medium text-purple-300 uppercase">
+                    {item.type}
+                  </span>
+                </div>
+                <p className="text-white group-hover:text-gray-100 transition-colors">
+                  {item.question}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       {!response.length && !loading && (

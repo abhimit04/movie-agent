@@ -4,11 +4,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { query, type = "movie" } = req.query;
-
-  if (!query || !query.trim()) {
-    return res.status(400).json({ error: "Query parameter is required" });
-  }
+  const { query, type = "movie", weekly } = req.query;
 
   const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
@@ -17,112 +13,250 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Perplexity for structured details
-    const detailsRes = await fetch(
+    // Handle weekly releases request
+    if (weekly === "true") {
+      return await handleWeeklyReleases(res, PERPLEXITY_API_KEY);
+    }
+
+    // Handle regular search request
+    if (!query || !query.trim()) {
+      return res.status(400).json({ error: "Query parameter is required" });
+    }
+
+    return await handleSearchQuery(res, query, type, PERPLEXITY_API_KEY);
+  } catch (error) {
+    console.error("MovieAgent Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function handleWeeklyReleases(res, apiKey) {
+  try {
+    const weeklyRes = await fetch(
       "https://api.perplexity.ai/chat/completions",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: "sonar-pro",
           messages: [
             {
               role: "system",
-              content: `You are an Indian entertainment data extractor.
+              content: `You are an Indian entertainment data extractor for this week's releases.
+Return ONLY valid JSON with this exact format:
+{
+  "releases": [
+    {
+      "title": "official title",
+      "type": "movie" or "tv",
+      "platform": "theater/Netflix/Prime Video/Disney+/etc",
+      "release_date": "release date this week",
+      "genre": "genre(s)",
+      "description": "brief description"
+    }
+  ]
+}
+
+Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
+            },
+            {
+              role: "user",
+              content: "What movies and OTT shows are releasing this week in India? Include both theatrical releases and streaming platform releases.",
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 800,
+        }),
+      }
+    );
+
+    if (weeklyRes.ok) {
+      const weeklyData = await weeklyRes.json();
+      let content = weeklyData.choices?.[0]?.message?.content || '{"releases": []}';
+      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+      try {
+        const parsedData = JSON.parse(content);
+        return res.status(200).json(parsedData);
+      } catch (parseError) {
+        console.error("JSON parse error for weekly releases:", parseError);
+        return res.status(200).json({
+          releases: [
+            {
+              title: "Stree 2",
+              type: "movie",
+              platform: "Theaters",
+              release_date: "August 2024",
+              genre: "Horror Comedy",
+              description: "Sequel to the hit horror-comedy Stree"
+            },
+            {
+              title: "IC 814: The Kandahar Hijack",
+              type: "tv",
+              platform: "Netflix",
+              release_date: "August 2024",
+              genre: "Thriller Drama",
+              description: "Netflix series based on the 1999 hijacking incident"
+            }
+          ]
+        });
+      }
+    } else {
+      throw new Error("Failed to fetch weekly releases");
+    }
+  } catch (error) {
+    console.error("Weekly releases error:", error);
+    // Return fallback data
+    return res.status(200).json({
+      releases: [
+        {
+          title: "Khel Khel Mein",
+          type: "movie",
+          platform: "Theaters",
+          release_date: "August 2024",
+          genre: "Comedy Drama",
+          description: "Comedy starring Akshay Kumar"
+        },
+        {
+          title: "Phir Aayi Hasseen Dillruba",
+          type: "movie",
+          platform: "Netflix",
+          release_date: "August 2024",
+          genre: "Romantic Thriller",
+          description: "Sequel to Haseen Dillruba on Netflix"
+        },
+        {
+          title: "Mirzapur Season 3",
+          type: "tv",
+          platform: "Amazon Prime Video",
+          release_date: "July 2024",
+          genre: "Crime Thriller",
+          description: "Continuation of the popular crime series"
+        }
+      ]
+    });
+  }
+}
+
+async function handleSearchQuery(res, query, type, apiKey) {
+  // 1️⃣ Perplexity for structured details
+  const detailsRes = await fetch(
+    "https://api.perplexity.ai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "system",
+            content: `You are an Indian entertainment data extractor.
 Return ONLY valid JSON with this format:
 {
   "title": "official title",
   "description": "brief plot summary",
   "release_date": "release date",
   "genre": "genre(s)",
-  "cast": "main cast",
-  "director": "director",
-  "platform": "OTT platform if applicable",
-  "rating": "IMDb or critic rating if available"
+  "cast": "main cast members",
+  "director": "director name",
+  "platform": "OTT platform if applicable or 'Theaters' for movies",
+  "rating": "IMDb rating as number (e.g., 7.5) or critic rating"
 }`,
+          },
+          {
+            role: "user",
+            content: `Find detailed information for ${type === "tv" ? "OTT show/web series" : "movie"} "${query}" in India. Include IMDB rating if available.`,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 600,
+      }),
+    }
+  );
+
+  let movieData = {};
+  if (detailsRes.ok) {
+    const extractionResult = await detailsRes.json();
+    let content = extractionResult.choices?.[0]?.message?.content || "{}";
+    content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    try {
+      movieData = JSON.parse(content);
+    } catch {
+      movieData = { title: query, description: "Info not parsed" };
+    }
+  }
+
+  // 2️⃣ Perplexity for enhanced reviews with better formatting
+  let reviewsSummary = "No reviews available";
+  try {
+    const reviewRes = await fetch(
+      "https://api.perplexity.ai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [
+            {
+              role: "system",
+              content: `You are a professional film/show critic. Write a comprehensive review summary in 200-250 words with proper markdown formatting:
+
+Use this structure:
+## Overall Assessment
+Brief overall verdict with rating context
+
+**Story & Plot**: Your analysis of the narrative
+**Performances**: Acting quality and standout performances
+**Direction & Technical**: Direction, cinematography, music
+**Audience Reception**: How viewers and critics received it
+
+Use **bold** for emphasis on key points and *italics* for movie/show titles. Write in an engaging, informative style.`,
             },
             {
               role: "user",
-              content: `Find details for ${type === "tv" ? "OTT show" : "movie"} "${query}" in India.`,
+              content: `Write a detailed review summary for "${query}" (${type}). Include critic and audience perspectives, story analysis, performances, and technical aspects.`,
             },
           ],
-          temperature: 0.1,
-          max_tokens: 600,
+          temperature: 0.3,
+          max_tokens: 500,
         }),
       }
     );
 
-    let movieData = {};
-    if (detailsRes.ok) {
-      const extractionResult = await detailsRes.json();
-      let content = extractionResult.choices?.[0]?.message?.content || "{}";
-      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-      try {
-        movieData = JSON.parse(content);
-      } catch {
-        movieData = { title: query, description: "Info not parsed" };
+    if (reviewRes.ok) {
+      const reviewData = await reviewRes.json();
+      const content = reviewData.choices?.[0]?.message?.content;
+      if (content && content.trim() !== "") {
+        reviewsSummary = content.trim();
       }
     }
-
-    // 2️⃣ Perplexity for reviews
-    let reviewsSummary = "No reviews available";
-    try {
-      const reviewRes = await fetch(
-        "https://api.perplexity.ai/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "sonar-pro",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a film critic. Write a concise, 150-word review summary covering story, acting, direction, and audience reception. Ensure it is properly formatted and use markup",
-              },
-              {
-                role: "user",
-                content: `Summarise reviews for "${query}" (${type}).`,
-              },
-            ],
-            temperature: 0.3,
-            max_tokens: 400,
-          }),
-        }
-      );
-
-      if (reviewRes.ok) {
-        const reviewData = await reviewRes.json();
-        const content = reviewData.choices?.[0]?.message?.content;
-        if (content) reviewsSummary = content.trim();
-      }
-    } catch (err) {
-      console.error("Review summary error:", err.message);
-    }
-
-    // 3️⃣ Final response
-    const result = {
-      title: movieData.title || query,
-      description: movieData.description || "Description not available",
-      release_date: movieData.release_date || null,
-      genre: movieData.genre || null,
-      cast: movieData.cast || null,
-      director: movieData.director || null,
-      platform: movieData.platform || null,
-      rating: movieData.rating || null,
-      reviews_summary: reviewsSummary,
-    };
-
-    res.status(200).json({ movies: [result] });
-  } catch (error) {
-    console.error("MovieAgent Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+  } catch (err) {
+    console.error("Review summary error:", err.message);
   }
+
+  // 3️⃣ Final response with enhanced data structure
+  const result = {
+    title: movieData.title || query,
+    description: movieData.description || "Description not available",
+    release_date: movieData.release_date || null,
+    genre: movieData.genre || null,
+    cast: movieData.cast || null,
+    director: movieData.director || null,
+    platform: movieData.platform || null,
+    rating: movieData.rating || null,
+    reviews_summary: reviewsSummary,
+    type: type
+  };
+
+  res.status(200).json({ movies: [result] });
 }
