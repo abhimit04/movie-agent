@@ -228,7 +228,7 @@ Use **bold** for emphasis on key points and *italics* for movie/show titles. Wri
             },
           ],
           temperature: 0.3,
-          max_tokens: 500,
+          max_tokens: 800,
         }),
       }
     );
