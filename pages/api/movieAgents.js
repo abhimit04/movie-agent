@@ -51,7 +51,7 @@ if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 function getGeminiModel() {
-  return genAI.getGenerativeModel({ model: "gemini-pro" });
+  return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 }
 
 // Gemini helper
