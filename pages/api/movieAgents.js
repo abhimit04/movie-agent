@@ -100,8 +100,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
               platform: "Theaters",
               release_date: "August 2024",
               genre: "Horror Comedy",
-              description: "Sequel to the hit horror-comedy Stree",
-                "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
+              description: "Sequel to the hit horror-comedy Stree"
             },
             {
               title: "IC 814: The Kandahar Hijack",
@@ -109,8 +108,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
               platform: "Netflix",
               release_date: "August 2024",
               genre: "Thriller Drama",
-              description: "Netflix series based on the 1999 hijacking incident",
-              "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
+              description: "Netflix series based on the 1999 hijacking incident"
             }
           ]
         });
