@@ -51,7 +51,7 @@ async function handleWeeklyReleases(res, apiKey) {
               - bookmyshow.com
               - filmibeat.com
               - livemint.com
-From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. Do not include any text outside the JSON object:
+From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to maximum 4-5 releases to fit within response limits. Do not include any text outside the JSON object:
 {
   "releases": [
     {
@@ -70,7 +70,7 @@ From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use do
     }
   ]
 }
-Ensure the response is valid JSON only.
+Ensure the response is valid JSON only. Keep descriptions brief and limit reference_sites to 2-3 links maximum. Focus on the latest and popular releases only.
 Include reference sites where users can find more info like IMDb, Rotten Tomatoes, BookMyShow for theater releases, or streaming platform names. Include both Bollywood/regional movies in theaters AND new OTT show/movie releases this week in India.`,
           },
           {
