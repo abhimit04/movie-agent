@@ -2,7 +2,7 @@
   "name": "movie-agent",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.11.0",
