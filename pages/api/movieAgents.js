@@ -57,15 +57,16 @@ async function callSerpAPI(query) {
   const data = await response.json();
   return data;
 }
-
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 // Helper function to call the Gemini API for summarization/classification
 async function callGemini(prompt, systemPrompt) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
   if (!GEMINI_API_KEY) {
     throw new Error("Missing Gemini API key");
   }
 
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
   const result = await model.generateContent({
