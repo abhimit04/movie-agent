@@ -68,7 +68,7 @@ export default function Home() {
   ];
 
   const suggestedQuestions = [
-    // List queries - will use new list format
+    // List queries - will use new list for
     {
       icon: Play,
       question: "Netflix shows this month",
