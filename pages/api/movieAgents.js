@@ -52,6 +52,30 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 function getGeminiModel() {
   return genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 }
+// OMDB fallback helper
+async function callOMDBAPI(title, year = "") {
+  const OMDB_API_KEY = process.env.OMDB_API_KEY;
+  if (!OMDB_API_KEY) throw new Error("Missing OMDB API key");
+
+  const url = new URL("https://www.omdbapi.com/");
+  url.searchParams.append("apikey", OMDB_API_KEY);
+  url.searchParams.append("t", title);  // exact title match
+  if (year) url.searchParams.append("y", year);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error(`OMDB API failed: ${response.status}`);
+  const data = await response.json();
+
+  if (data && data.Response === "True") {
+    return {
+      rating: data.imdbRating !== "N/A" ? `${data.imdbRating}/10` : null,
+      votes: data.imdbVotes !== "N/A" ? data.imdbVotes : null,
+      runtime: data.Runtime !== "N/A" ? data.Runtime : null
+    };
+  }
+
+  return { rating: null, votes: null, runtime: null };
+}
 
 // Gemini helper
 async function callGemini(prompt, systemPrompt = "") {
@@ -171,6 +195,18 @@ async function handleSpecificQuery(res, query) {
     const knowledgeGraph = serpResult.knowledge_graph;
     const relatedSearches = serpResult.related_searches?.map(s => s.query) || [];
 
+    let rating = knowledgeGraph.rating;
+
+    // If no rating from SerpAPI, fallback to OMDB
+    if (!rating) {
+      try {
+        const omdbData = await callOMDBAPI(knowledgeGraph.title, knowledgeGraph.year);
+        rating = omdbData.rating;
+      } catch (err) {
+        console.error("OMDB fallback failed:", err);
+      }
+    }
+
     if (!knowledgeGraph || !knowledgeGraph.title) {
       return res.status(200).json({
         movies: [],
@@ -206,7 +242,7 @@ async function handleSpecificQuery(res, query) {
       cast: safeJoin(knowledgeGraph.cast?.map(c => c.name)),
       director: safeJoin(knowledgeGraph.director),
       platform: safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name)),
-      rating: knowledgeGraph.rating,
+      rating: rating,
       reviews_summary: reviewSummary,
       type: "movie",
       search_hints: {
