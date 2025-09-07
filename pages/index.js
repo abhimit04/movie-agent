@@ -116,49 +116,71 @@ export default function Home() {
   };
 
   // Fixed submit handler with proper error handling
-  const handleSubmit = async () => {
-    if (!query.trim()) {
-      setError("Please enter a search query");
-      return;
+// Updated handleSubmit function - replace your existing one
+const handleSubmit = async () => {
+  if (!query.trim()) {
+    setError("Please enter a search query");
+    return;
+  }
+
+  setLoading(true);
+  setResponse([]);
+  setError("");
+
+  try {
+    const res = await fetch(
+      `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
     }
 
-    setLoading(true);
-    setResponse([]);
-    setError("");
+    const data = await res.json();
+    console.log('API Response:', data); // Debug log
 
-    try {
-      const res = await fetch(
-        `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setResponse(data.movies || []);
-
-      if (!data.movies || data.movies.length === 0) {
-        setError("No results found. Try a different search term.");
-      }
-    } catch (err) {
-      console.error("Error fetching movies:", err);
-      setError(`Failed to fetch results: ${err.message}`);
-    } finally {
-      setLoading(false);
+    if (data.error) {
+      throw new Error(data.error);
     }
-  };
+
+    // Handle both response types: list queries (releases) and specific queries (movies)
+    let results = [];
+
+    if (data.releases) {
+      // List query response (Netflix shows, top movies, etc.)
+      results = data.releases;
+      console.log('List query results:', results.length);
+    } else if (data.movies) {
+      // Specific query response (individual movie details)
+      results = data.movies;
+      console.log('Specific query results:', results.length);
+    }
+
+    setResponse(results);
+
+    // Show search hints if available
+    if (data.search_hints && !data.search_hints.found_results) {
+      const suggestions = data.search_hints.suggestions.join(' • ');
+      setError(`Suggestions: ${suggestions}`);
+    }
+
+    if (results.length === 0) {
+      setError("No results found. Try a different search term.");
+    }
+
+  } catch (err) {
+    console.error("Error fetching movies:", err);
+    setError(`Failed to fetch results: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !loading) {
