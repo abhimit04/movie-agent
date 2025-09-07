@@ -1,20 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Simple in-memory cache
-const cache = new Map();
-function setCache(key, data, ttl = 600000) {
-  cache.set(key, { data, expiry: Date.now() + ttl });
-}
-function getCache(key) {
-  const cached = cache.get(key);
-  if (!cached) return null;
-  if (cached.expiry < Date.now()) {
-    cache.delete(key);
-    return null;
-  }
-  return cached.data;
-}
-
 // Tavily API helper
 async function callTavilyAPI(query) {
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -94,13 +79,9 @@ async function callOMDBAPI(title, year = "") {
 async function callGemini(prompt, systemPrompt = "") {
   const model = getGeminiModel();
   const result = await model.generateContent({
-    contents: [
-      { role: "user", parts: [{ text: systemPrompt + prompt }] }
-    ],
+    contents: [{ role: "user", parts: [{ text: systemPrompt + prompt }] }],
   });
-
-  const text = (await result.response).text();
-  return text;
+  return (await result.response).text();
 }
 
 // Normalize array/string fields
@@ -139,18 +120,22 @@ Reply with just one word: LIST or SPECIFIC`;
 
 // Weekly releases
 async function handleWeeklyReleases(res, page = 1, pageSize = 5) {
-  const cacheKey = "weekly";
-  const cached = getCache(cacheKey);
-  if (cached) return res.status(200).json({ releases: paginateArray(cached.releases, page, pageSize) });
-
   try {
-    const searchResult = await callTavilyAPI("new movie and OTT releases this week in India");
+    const searchResult = await callTavilyAPI("latest movies and TV shows released in India this week");
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
-    const geminiPrompt = ` Important : From the following search results, return only movies or shows released in the last 7 days in India. Summarize into JSON with format: { "releases": [ { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" } ] } Input: ${searchContent}`;
+
+    const geminiPrompt = `Summarize into JSON with format:
+{
+  "releases": [
+    { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" }
+  ]
+}
+Input:
+${searchContent}`;
 
     const geminiResponse = await callGemini(geminiPrompt);
     const parsedData = safeParseJSON(geminiResponse) || { releases: [] };
-    setCache(cacheKey, parsedData, 0.5 * 60 * 1000); // 10 min
+
     return res.status(200).json({ releases: paginateArray(parsedData.releases, page, pageSize) });
   } catch (error) {
     console.error("Weekly releases error:", error);
@@ -160,17 +145,23 @@ async function handleWeeklyReleases(res, page = 1, pageSize = 5) {
 
 // List queries
 async function handleListQuery(res, query, page = 1, pageSize = 5) {
-  const cacheKey = `list:${query}`;
-  const cached = getCache(cacheKey);
-  if (cached) return res.status(200).json({ releases: paginateArray(cached.releases, page, pageSize) });
-
   try {
     const searchResult = await callTavilyAPI(query);
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
-    const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.\n\nSearch Results:\n${searchContent}\n\nReturn ONLY valid JSON with this format: { "releases": [ { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "", "rating": "" } ] }`;
+
+    const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
+Search Results:
+${searchContent}
+Return ONLY valid JSON with this format:
+{
+  "releases": [
+    { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "", "rating": "" }
+  ]
+}`;
+
     const geminiResponse = await callGemini(geminiPrompt);
     const parsedData = safeParseJSON(geminiResponse) || { releases: [] };
-    setCache(cacheKey, parsedData, 60 * 60 * 1000); // 1 hour
+
     return res.status(200).json({ releases: paginateArray(parsedData.releases, page, pageSize) });
   } catch (error) {
     console.error("List query error:", error);
@@ -180,14 +171,12 @@ async function handleListQuery(res, query, page = 1, pageSize = 5) {
 
 // Specific queries
 async function handleSpecificQuery(res, query) {
-  console.log(`Processing specific query: "${query}"`);
   try {
     const serpResult = await callSerpAPI(query);
     const knowledgeGraph = serpResult.knowledge_graph;
     const relatedSearches = serpResult.related_searches?.map(s => s.query) || [];
 
     let rating = knowledgeGraph?.rating;
-
     if (!rating && knowledgeGraph?.title) {
       try {
         const omdbData = await callOMDBAPI(knowledgeGraph.title, knowledgeGraph.year);
@@ -202,7 +191,6 @@ async function handleSpecificQuery(res, query) {
     }
 
     const geminiSummaryPrompt = `Based on the following search result data, provide a comprehensive summary and review.
-
 Search Result Data:
 Title: ${knowledgeGraph.title}
 Description: ${knowledgeGraph.description}
@@ -212,26 +200,25 @@ Cast: ${safeJoin(knowledgeGraph.cast?.map(c => c.name))}
 Director: ${safeJoin(knowledgeGraph.director)}
 Platforms: ${safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name))}
 Rating: ${rating}
-
 Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Use markdown for formatting.`;
 
-    const reviewSummary = await callGemini(geminiSummaryPrompt, "");
+    const reviewSummary = await callGemini(geminiSummaryPrompt);
 
-    const result = {
-      title: knowledgeGraph.title,
-      description: knowledgeGraph.description,
-      release_date: knowledgeGraph.start_date || knowledgeGraph.year,
-      genre: safeJoin(knowledgeGraph.genres),
-      cast: safeJoin(knowledgeGraph.cast?.map(c => c.name)),
-      director: safeJoin(knowledgeGraph.director),
-      platform: safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name)),
-      rating,
-      reviews_summary: reviewSummary,
-      type: "movie",
-      search_hints: { found_match: true, confidence: "high", suggestions: relatedSearches },
-    };
-
-    return res.status(200).json({ movies: [result] });
+    return res.status(200).json({
+      movies: [{
+        title: knowledgeGraph.title,
+        description: knowledgeGraph.description,
+        release_date: knowledgeGraph.start_date || knowledgeGraph.year,
+        genre: safeJoin(knowledgeGraph.genres),
+        cast: safeJoin(knowledgeGraph.cast?.map(c => c.name)),
+        director: safeJoin(knowledgeGraph.director),
+        platform: safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name)),
+        rating,
+        reviews_summary: reviewSummary,
+        type: "movie",
+        search_hints: { found_match: true, confidence: "high", suggestions: relatedSearches }
+      }]
+    });
   } catch (error) {
     console.error("Specific query error:", error);
     return res.status(200).json({ movies: [], search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] } });
