@@ -1,5 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const fetch = require("node-fetch"); // if needed, depending on Node version
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Simple in-memory cache
 const cache = new Map();
@@ -239,7 +238,7 @@ Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on
 }
 
 // Main handler
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -262,4 +261,4 @@ module.exports = async function handler(req, res) {
     console.error("Main handler error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
-};
+}
