@@ -87,6 +87,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
 
       try {
         const parsedData = JSON.parse(content);
+        console.log("Weekly releases parsed data:", parsedData);
         return res.status(200).json(parsedData);
       } catch (parseError) {
         console.error("JSON parse error for weekly releases:", parseError);
