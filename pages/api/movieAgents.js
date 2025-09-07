@@ -53,7 +53,7 @@ async function handleWeeklyReleases(res, apiKey) {
               - bookmyshow.com
               - filmibeat.com
               - livemint.com
-Return ONLY valid JSON with this exact format:
+From the search Return ONLY valid JSON with this exact format:
 {
   "releases": [
     {
@@ -147,7 +147,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
         }
       ]
     });
-  }
+
 }
 
 async function handleSearchQuery(res, query, type, apiKey) {
