@@ -403,8 +403,8 @@ export default function Home() {
   };
 
   // Updated handleSubmit function
-  const handleSubmit = async () => {
-    if (!query.trim()) {
+  const handleSubmit = async (searchQuery = query, searchType = type) => {
+    if (!searchQuery || !searchQuery.trim()) {
       setError("Please enter a search query");
       return;
     }
@@ -415,7 +415,7 @@ export default function Home() {
 
     try {
       const res = await fetch(
-        `/api/movieAgents?query=${encodeURIComponent(query)}&type=${type}`,
+        `/api/movieAgents?query=${encodeURIComponent(searchQuery)}&type=${searchType}`,
         {
           method: 'GET',
           headers: {
@@ -470,17 +470,15 @@ export default function Home() {
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !loading) {
-      handleSubmit();
+      handleSubmit(query,type);
     }
   };
 
   const handleSuggestedQuestion = (question, questionType) => {
     setQuery(question);
     setType(questionType);
+    handleSubmit(question, questionType); // Pass values directly
     // Auto-submit after a brief delay to show the update
-    setTimeout(() => {
-      handleSubmit();
-    }, 100);
   };
 
   const handleBackToHome = () => {
