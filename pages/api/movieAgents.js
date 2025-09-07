@@ -127,13 +127,7 @@ async function handleWeeklyReleases(res, apiKey) {
           {
             role: "system",
             content: `You are an Indian entertainment data extractor for this week's releases.
-              Perform a web search on primarily the following sites to get the most accurate and up-to-date information:
-              - google.com
-              - imdb.com
-              - rottentomatoes.com
-              - bookmyshow.com
-              - filmibeat.com
-              - livemint.com
+                Perform a web search to get the most accurate and up-to-date information.
 From the search,Return ONLY valid JSON with this exact format. IMPORTANT: Use double quotes for all strings and property names. IMPORTANT: Limit to only number of releases to fit within response limits. Do not include any text outside the JSON object:
 {
   "releases": [
