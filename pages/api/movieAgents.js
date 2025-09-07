@@ -46,7 +46,7 @@ async function handleWeeklyReleases(res, apiKey) {
             {
               role: "system",
               content: `You are an Indian entertainment data extractor for this week's releases.
-              Perform a web search on primarliy the following sites to get the most accurate and up-to-date information:
+              Perform a web search on primarily the following sites to get the most accurate and up-to-date information:
               -google.com
               - imdb.com
               - rottentomatoes.com
@@ -101,6 +101,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
               release_date: "August 2024",
               genre: "Horror Comedy",
               description: "Sequel to the hit horror-comedy Stree"
+                "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
             },
             {
               title: "IC 814: The Kandahar Hijack",
@@ -109,6 +110,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
               release_date: "August 2024",
               genre: "Thriller Drama",
               description: "Netflix series based on the 1999 hijacking incident"
+              "reference_sites": ["IMDb link", "Rotten Tomatoes link", "BookMyShow link", "Streaming platform link if applicable"]
             }
           ]
         });
@@ -147,7 +149,7 @@ Include reference sites where users can find more info like IMDb, Rotten Tomatoe
         }
       ]
     });
-}
+ }
 }
 
 async function handleSearchQuery(res, query, type, apiKey) {
