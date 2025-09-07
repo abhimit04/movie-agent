@@ -88,7 +88,7 @@ export default function Home() {
     }
   ];
 
-  // Fetch weekly releases on component mount
+  // Fetch weekly releases on component
   useEffect(() => {
     fetchWeeklyReleases();
   }, []);
