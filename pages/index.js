@@ -248,9 +248,7 @@ export default function Home() {
         .replace(/\n/g, '<br/>');
     };
 
-   const filteredReleases = weeklyReleases.filter(item =>
-     activeTab === "movies" ? item.type === "movie" : item.type === "tv"
-   );
+
   // Share functionality
   const generateShareContent = (item) => {
     const baseContent = {
@@ -352,6 +350,10 @@ export default function Home() {
   // Share Modal Component
   const ShareModal = () => {
     if (!shareModalOpen || !shareContent) return null;
+
+    const filteredReleases = weeklyReleases.filter(item =>
+         activeTab === "movies" ? item.type === "movie" : item.type === "tv"
+       );
 
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
