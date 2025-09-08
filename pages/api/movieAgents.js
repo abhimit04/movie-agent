@@ -112,45 +112,88 @@ async function callSerpAPI(query) {
 }
 
 // -------------------------------
-// TMDB discovery (movies + TV) for last N days
-async function fetchTMDBMoviesByDateRange(days = 10, page = 1) {
-  if (!TMDB_API_KEY) throw new Error("Missing TMDB_API_KEY");
-  const today = new Date();
-  const start = new Date();
-  start.setDate(today.getDate() - days);
-
-  const from = start.toISOString().split("T")[0];
-  const to = today.toISOString().split("T")[0];
-
-  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&primary_release_date.gte=${from}&primary_release_date.lte=${to}&region=IN&sort_by=release_date.desc&page=${page}`;
-  console.log("TMDB movies URL:", url);
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error("TMDB movies failed:", res.status, text);
-    return { results: [], total_pages: 0 };
-  }
-  return res.json();
-}
-
-async function fetchTMDBTVByDateRange(days = 10, page = 1) {
-  if (!TMDB_API_KEY) throw new Error("Missing TMDB_API_KEY");
-  // TMDB doesn't have a simple discover for TV release dates like movies,
-  // we'll use "on the air" and then filter by first_air_date.
-  const url = `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&page=${page}`;
-  console.log("TMDB tv URL:", url);
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error("TMDB tv failed:", res.status, text);
-    return { results: [], total_pages: 0 };
-  }
-  return res.json();
-}
+//// TMDB discovery (movies + TV) for last N days
+//async function fetchTMDBMoviesByDateRange(days = 10, page = 1) {
+//  if (!TMDB_API_KEY) throw new Error("Missing TMDB_API_KEY");
+//  const today = new Date();
+//  const start = new Date();
+//  start.setDate(today.getDate() - days);
+//
+//  const from = start.toISOString().split("T")[0];
+//  const to = today.toISOString().split("T")[0];
+//
+//  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&primary_release_date.gte=${from}&primary_release_date.lte=${to}&region=IN&sort_by=release_date.desc&page=${page}`;
+//  console.log("TMDB movies URL:", url);
+//
+//  const res = await fetch(url);
+//  if (!res.ok) {
+//    const text = await res.text().catch(() => "");
+//    console.error("TMDB movies failed:", res.status, text);
+//    return { results: [], total_pages: 0 };
+//  }
+//  return res.json();
+//}
+//
+//async function fetchTMDBTVByDateRange(days = 10, page = 1) {
+//  if (!TMDB_API_KEY) throw new Error("Missing TMDB_API_KEY");
+//  // TMDB doesn't have a simple discover for TV release dates like movies,
+//  // we'll use "on the air" and then filter by first_air_date.
+//  const url = `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&page=${page}`;
+//  console.log("TMDB tv URL:", url);
+//
+//  const res = await fetch(url);
+//  if (!res.ok) {
+//    const text = await res.text().catch(() => "");
+//    console.error("TMDB tv failed:", res.status, text);
+//    return { results: [], total_pages: 0 };
+//  }
+//  return res.json();
+//}
 
 // -------------------------------
+
+// Fetch now playing movies (India region)
+async function fetchTMDBNowPlaying(page = 1) {
+  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+  if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+
+  const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`;
+  console.log("🎬 Fetching TMDB now playing (India):", url);
+
+  const res = await fetch(url);
+  console.log("TMDB now playing response status:", res.status);
+
+  if (!res.ok) throw new Error(`TMDB now playing fetch failed: ${res.status}`);
+  return res.json();
+}
+
+//Fetch release types (to classify Theatrical vs OTT)
+async function fetchTMDBReleaseTypes(movieId) {
+  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+  if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+
+  const url = `https://api.themoviedb.org/3/movie/${movieId}/release_dates?api_key=${TMDB_API_KEY}`;
+  console.log("🎬 Fetching TMDB release types:", url);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.warn(`⚠️ Failed to fetch release types for ${movieId}`);
+    return "Unknown";
+  }
+
+  const data = await res.json();
+
+  // Look for India-specific release info
+  const indiaRelease = data.results.find(r => r.iso_3166_1 === "IN");
+  if (!indiaRelease) return "Unknown";
+
+  // Check release types → 3 = Theatrical, 4 = Digital
+  const types = indiaRelease.release_dates.map(r => r.type);
+  if (types.includes(3)) return "Theatrical";
+  if (types.includes(4)) return "OTT"; // rename "Digital" → "OTT"
+
+  return "Unknown";
+}
 // OMDB enrichment: use exact title + optional year (y) with `t` param
 async function fetchOMDBDetails(title, year = "") {
   if (!OMDB_API_KEY) {
@@ -189,131 +232,119 @@ async function fetchOMDBDetails(title, year = "") {
     return null;
   }
 }
-async function fetchTMDBNowPlaying(page = 1) {
-  const TMDB_API_KEY = process.env.TMDB_API_KEY;
-  if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+//async function fetchTMDBNowPlaying(page = 1) {
+//  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+//  if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+//
+//  const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`;
+//  console.log("🎬 Fetching TMDB now playing (India):", url);
+//
+//  const res = await fetch(url);
+//  if (!res.ok) throw new Error(`TMDB now playing fetch failed: ${res.status}`);
+//  return res.json();
+//}
 
-  const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`;
-  console.log("🎬 Fetching TMDB now playing (India):", url);
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TMDB now playing fetch failed: ${res.status}`);
-  return res.json();
-}
-
-// Fetch release types (to classify Theatrical vs OTT)
-async function fetchTMDBReleaseTypes(movieId) {
-  const TMDB_API_KEY = process.env.TMDB_API_KEY;
-  const url = `https://api.themoviedb.org/3/movie/${movieId}/release_dates?api_key=${TMDB_API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    console.warn(`⚠️ Failed to fetch release types for ${movieId}`);
-    return "Unknown";
-  }
-  const data = await res.json();
-
-  // Look for India-specific release info
-  const indiaRelease = data.results.find(r => r.iso_3166_1 === "IN");
-  if (!indiaRelease) return "Unknown";
-
-  // Check release types → 3 = Theatrical, 4 = Digital
-  const types = indiaRelease.release_dates.map(r => r.type);
-  if (types.includes(3)) return "Theatrical";
-  if (types.includes(4)) return "OTT"; // rename "Digital" → "OTT"
-
-  return "Unknown";
-}
-async function enrichWithOMDB(title, year) {
-  const OMDB_API_KEY = process.env.OMDB_API_KEY;
-  if (!OMDB_API_KEY) {
-    console.warn("⚠️ OMDB API key missing, skipping enrichment");
-    return {};
-  }
-
-  const url = `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}${year ? `&y=${year}` : ""}`;
-  console.log("🔎 Fetching OMDB:", url);
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`⚠️ OMDB fetch failed for ${title}: ${res.status}`);
-      return {};
-    }
-    const data = await res.json();
-    if (data.Response === "False") {
-      console.warn(`⚠️ OMDB no match for ${title}`);
-      return {};
-    }
-
-    return {
-      imdbRating: data.imdbRating !== "N/A" ? `${data.imdbRating}/10 (IMDb)` : null,
-      genres: data.Genre || null,
-      runtime: data.Runtime || null
-    };
-  } catch (err) {
-    console.error("❌ OMDB enrichment error:", err);
-    return {};
-  }
-}
+//async function enrichWithOMDB(title, year) {
+//  const OMDB_API_KEY = process.env.OMDB_API_KEY;
+//  if (!OMDB_API_KEY) {
+//    console.warn("⚠️ OMDB API key missing, skipping enrichment");
+//    return {};
+//  }
+//
+//  const url = `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}${year ? `&y=${year}` : ""}`;
+//  console.log("🔎 Fetching OMDB:", url);
+//
+//  try {
+//    const res = await fetch(url);
+//    if (!res.ok) {
+//      console.warn(`⚠️ OMDB fetch failed for ${title}: ${res.status}`);
+//      return {};
+//    }
+//    const data = await res.json();
+//    if (data.Response === "False") {
+//      console.warn(`⚠️ OMDB no match for ${title}`);
+//      return {};
+//    }
+//
+//    return {
+//      imdbRating: data.imdbRating !== "N/A" ? `${data.imdbRating}/10 (IMDb)` : null,
+//      genres: data.Genre || null,
+//      runtime: data.Runtime || null
+//    };
+//  } catch (err) {
+//    console.error("❌ OMDB enrichment error:", err);
+//    return {};
+//  }
+//}
 // -------------------------------
-// Weekly releases: TMDB discovery + OMDB enrichment + dedupe
-async function fetchWeeklyReleases({ days = 10, page = 1 } = {}) {
-  // Preload genre map
-  await getTmdbGenreMap();
+/// Weekly releases: now playing + OMDB enrichment + platform classification
+ async function fetchWeeklyReleases({ days = 10, page = 1 } = {}) {
+   // Preload genre map
+   await getTmdbGenreMap();
 
-  // 1) Fetch now playing movies in India
-  const nowPage = await fetchTMDBNowPlaying(page);
-  const nowMoviesRaw = nowPage.results || [];
+   // 1) Fetch now playing movies in India
+   const nowPage = await fetchTMDBNowPlaying(page);
+   const nowMoviesRaw = nowPage.results || [];
 
-  // 2) Filter movies by release date (last `days` days only)
-  const recentMovies = nowMoviesRaw.filter(m =>
-    m.release_date && isWithinDays(m.release_date, days)
-  );
+   // 2) Filter movies by release date (last `days` days only)
+   const recentMovies = nowMoviesRaw.filter(m =>
+     m.release_date && isWithinDays(m.release_date, days)
+   );
 
-  console.log(`Now playing total: ${nowMoviesRaw.length}, after filtering (<=${days} days): ${recentMovies.length}`);
+   console.log(`Now playing total: ${nowMoviesRaw.length}, after filtering (<=${days} days): ${recentMovies.length}`);
 
-  // 3) Enrich results with providers (OTT detection), OMDB, genre names
-  const result = [];
-  for (const m of recentMovies) {
-    try {
-      // --- Providers (OTT vs Theatrical) ---
-      const providers = await fetchTMDBProviders(m.id);
-      const platform = (providers && providers.length) ? `OTT (${providers.join(", ")})` : "Theatrical";
+   // 3) Enrich results with providers (OTT detection), OMDB, genre names
+   const result = [];
+   for (const m of recentMovies) {
+     try {
+       // --- Detect release type (Theatrical / Digital) ---
+       let platformType = await fetchTMDBReleaseTypes(m.id); // returns "Theatrical", "OTT", or "Unknown"
 
-      // --- OMDB enrichment ---
-      const year = m.release_date ? (new Date(m.release_date).getFullYear() + "") : "";
-      const omdb = await fetchOMDBDetails(m.title, year);
+       // --- Fetch providers for OTT ---
+       let providersList = [];
+       if (platformType === "OTT") {
+         providersList = await fetchTMDBProviders(m.id); // returns array like ["Netflix", "Prime Video"]
+       }
 
-      // --- Genres ---
-      const mappedGenres = mapGenreIdsToNames(m.genre_ids);
+       const platform = (platformType === "OTT" && providersList.length)
+         ? `OTT (${providersList.join(", ")})`
+         : platformType || "Unknown";
 
-      // --- Merge TMDB + OMDB ---
-      const merged = {
-        id: m.id,
-        title: m.title,
-        release_date: m.release_date,
-        overview: m.overview || null,
-        genre: omdb?.Genre || mappedGenres || null,
-        rating: omdb?.imdbRating && omdb?.imdbRating !== "N/A"
-          ? `${omdb.imdbRating}/10 (IMDb)`
-          : (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
-        runtime: omdb?.Runtime || null,
-        platform, // Prefer our OTT/Theatrical detection
-        providers: providers || null,
-        source: omdb?.Response === "True" ? "TMDB+OMDB" : "TMDB.now_playing",
-      };
+       // --- OMDB enrichment ---
+       const year = m.release_date ? (new Date(m.release_date).getFullYear() + "") : "";
+       const omdb = await fetchOMDBDetails(m.title, year);
 
-      console.log("🎬 Weekly movie:", merged.title, "| released:", merged.release_date, "| platform:", merged.platform);
-      result.push(merged);
-    } catch (err) {
-      console.error("❌ Error enriching movie", m.title, err);
-    }
-  }
+       // --- Genres ---
+       const mappedGenres = mapGenreIdsToNames(m.genre_ids);
 
-  console.log("✅ Weekly final count:", result.length);
-  return result;
-}
+       // --- Merge TMDB + OMDB ---
+       const merged = {
+         id: m.id,
+         title: m.title,
+         release_date: m.release_date,
+         overview: m.overview || null,
+         genre: omdb?.genre || mappedGenres || null,
+         rating: omdb?.imdbRating && omdb?.imdbRating !== "N/A"
+           ? `${omdb.imdbRating}/10 (IMDb)`
+           : (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
+         runtime: omdb?.runtime || null,
+         platform,           // Theatrical or OTT (with provider names)
+         providers: providersList.length ? providersList : null,
+         source: omdb?.Response === "True" ? "TMDB+OMDB" : "TMDB.now_playing",
+       };
 
+       console.log("🎬 Weekly movie:", merged.title, "| released:", merged.release_date, "| platform:", merged.platform);
+       result.push(merged);
+
+     } catch (err) {
+       console.error("❌ Error enriching movie", m.title, err);
+     }
+   }
+
+   console.log("✅ Weekly final count:", result.length);
+   return result;
+ }
 
 // -------------------------------
 // List query (Tavily -> Gemini JSON) + OMDB enrichment
