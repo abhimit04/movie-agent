@@ -59,11 +59,11 @@ export default function Home() {
           },
         ]);
       } else {
-        // Delay slightly to ensure query & type are set
-        setTimeout(() => handleSubmit(title, typeParam), 0);
+        handleSubmit(title, typeParam);
       }
     }
   }, []);
+
 
 
 
