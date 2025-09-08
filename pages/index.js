@@ -37,36 +37,6 @@ export default function Home() {
   const [shareContent, setShareContent] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const title = params.get('title');
-    const typeParam = params.get('type') || 'movie';
-    const review = params.get('review');
-
-    if (title) {
-      setQuery(title);
-      setType(typeParam);
-
-      if (review) {
-        setResponse([
-          {
-            title,
-            type: typeParam,
-            reviews_summary: decodeURIComponent(review),
-            rating: params.get('rating') || null,
-            platform: params.get('platform') || null,
-            genre: params.get('genre') || null,
-          },
-        ]);
-      } else {
-        handleSubmit(title, typeParam);
-      }
-    }
-  }, []);
-
-
-
-
 
   const features = [
     {
@@ -140,6 +110,32 @@ export default function Home() {
     }
   ];
 
+  useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const title = params.get('title');
+      const typeParam = params.get('type') || 'movie';
+      const review = params.get('review');
+
+      if (title) {
+        setQuery(title);
+        setType(typeParam);
+
+        if (review) {
+          setResponse([
+            {
+              title,
+              type: typeParam,
+              reviews_summary: decodeURIComponent(review),
+              rating: params.get('rating') || null,
+              platform: params.get('platform') || null,
+              genre: params.get('genre') || null,
+            },
+          ]);
+        } else {
+          handleSubmit(title, typeParam);
+        }
+      }
+    }, []);
   // Share functionality
   const generateShareContent = (item) => {
     const baseContent = {
