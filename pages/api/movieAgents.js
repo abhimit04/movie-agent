@@ -117,43 +117,54 @@ Reply with just one word: LIST or SPECIFIC`;
   const result = await callGemini(systemPrompt);
   return result.trim().toUpperCase() === "LIST";
 }
-
+// Helper: check if date is within last N days
+function isWithinDays(dateStr, days = 10) {
+  if (!dateStr) return false;
+  const releaseDate = new Date(dateStr);
+  const now = new Date();
+  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24); // days difference
+  return diff >= 0 && diff <= days;
+}
 // Weekly releases handler (using TMDB instead of Tavily+Gemini)
 async function handleWeeklyReleases(res, page = 1) {
   try {
     const TMDB_API_KEY = process.env.TMDB_API_KEY;
     if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
 
-    // Movies now playing in India
+    // Fetch movies now playing in India
     const movieRes = await fetch(
       `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`
     );
     const movieData = await movieRes.json();
 
-    // TV shows currently airing
+    // Fetch TV shows currently airing
     const tvRes = await fetch(
       `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&language=en-IN&page=${page}`
     );
     const tvData = await tvRes.json();
 
-    // Normalize results
+    // Normalize + filter for last 10 days
     const releases = [
-      ...(movieData.results || []).map(m => ({
-        title: m.title,
-        type: "movie",
-        release_date: m.release_date,
-        platform: "Theaters"
-        //genre: (m.genre_ids || []).join(", "), // optional: map to names
-        //rating: m.vote_average ? `${m.vote_average}/10` : null
-      })),
-      ...(tvData.results || []).map(t => ({
-        title: t.name,
-        type: "tv",
-        release_date: t.first_air_date,
-        platform: "TV/OTT",
-        //genre: (t.genre_ids || []).join(", "),
-        //rating: t.vote_average ? `${t.vote_average}/10` : null
-      }))
+      ...(movieData.results || [])
+        .filter(m => isWithinDays(m.release_date, 10))
+        .map(m => ({
+          title: m.title,
+          type: "movie",
+          release_date: m.release_date,
+          platform: "Theaters/OTT", // TMDB doesn’t separate directly
+          genre: (m.genre_ids || []).join(", "),
+          rating: m.vote_average ? `${m.vote_average}/10` : null
+        })),
+      ...(tvData.results || [])
+        .filter(t => isWithinDays(t.first_air_date, 10))
+        .map(t => ({
+          title: t.name,
+          type: "tv",
+          release_date: t.first_air_date,
+          platform: "OTT/TV",
+          genre: (t.genre_ids || []).join(", "),
+          rating: t.vote_average ? `${t.vote_average}/10` : null
+        }))
     ];
 
     return res.status(200).json({
