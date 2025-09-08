@@ -110,7 +110,8 @@ export default function Home() {
     }
   ];
 
-  useEffect(() => {
+    // Handle URL query parameters for standalone search
+    useEffect(() => {
       const params = new URLSearchParams(window.location.search);
       const title = params.get('title');
       const typeParam = params.get('type') || 'movie';
@@ -121,21 +122,135 @@ export default function Home() {
         setType(typeParam);
 
         if (review) {
-          setResponse([
-            {
-              title,
-              type: typeParam,
-              reviews_summary: decodeURIComponent(review),
-              rating: params.get('rating') || null,
-              platform: params.get('platform') || null,
-              genre: params.get('genre') || null,
-            },
-          ]);
+          setResponse([{
+            title,
+            type: typeParam,
+            reviews_summary: decodeURIComponent(review),
+            rating: params.get('rating') || null,
+            platform: params.get('platform') || null,
+            genre: params.get('genre') || null
+          }]);
         } else {
-          handleSubmit(title, typeParam);
+          setTimeout(() => handleSubmit(title, typeParam), 0);
         }
       }
     }, []);
+
+    // Fetch weekly releases on component mount
+      useEffect(() => {
+        fetchWeeklyReleases();
+      }, []);
+
+      const fetchWeeklyReleases = async () => {
+        setWeeklyLoading(true);
+        try {
+          const res = await fetch('/api/movieAgents?weekly=true', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            setWeeklyReleases(data.releases || []);
+          }
+        } catch (err) {
+          console.error("Error fetching weekly releases:", err);
+        } finally {
+          setWeeklyLoading(false);
+        }
+      };
+   // Updated handleSubmit function
+   const handleSubmit = async (searchQuery, searchType) => {
+     if (!searchQuery || !searchQuery.trim()) {
+       setError("Please enter a search query");
+       return;
+     }
+
+     setLoading(true);
+     setResponse([]);
+     setError("");
+
+     try {
+       const res = await fetch(
+         `/api/movieAgents?query=${encodeURIComponent(searchQuery)}&type=${searchType}`,
+         { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+       );
+
+       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+       const data = await res.json();
+
+       const results = data.releases || data.movies || [];
+       setResponse(results);
+
+       if (results.length === 0) {
+         setError("No results found. Try a different search term.");
+       }
+
+     } catch (err) {
+       console.error("Error fetching movies:", err);
+       setError(`Failed to fetch results: ${err.message}`);
+     } finally {
+       setLoading(false);
+     }
+   };
+
+   const handleKeyPress = (e) => {
+     if (e.key === "Enter" && !loading) {
+       handleSubmit(query,type);
+     }
+   };
+
+   const handleSuggestedQuestion = (question, questionType) => {
+     setQuery(question);
+     setType(questionType);
+     handleSubmit(question, questionType); // Pass values directly
+     // Auto-submit after a brief delay to show the update
+   };
+
+   const handleBackToHome = () => {
+     setQuery("");
+     setResponse([]);
+     setError("");
+     setType("movie");
+     // Clear URL parameters
+     window.history.pushState({}, '', window.location.pathname);
+   };
+
+// Scroll to bottom when response updates
+  useEffect(() => {
+    if (response.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [response]);
+
+  // Clear error when user starts typing
+  useEffect(() => {
+    if (query.trim() && error) {
+      setError("");
+    }
+  }, [query]);
+
+  const renderReviewContent = (reviewText) => {
+    if (!reviewText || reviewText === "No reviews available") {
+      return <p className="text-gray-400">No reviews available</p>;
+    }
+
+    // Convert markdown-like formatting to HTML
+    const formatReview = (text) => {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-yellow-400">$1</em>')
+        .replace(/###\s*(.*?)$/gm, '<h3 class="text-lg font-semibold text-purple-300 mb-2">$1</h3>')
+        .replace(/##\s*(.*?)$/gm, '<h2 class="text-xl font-bold text-purple-300 mb-3">$1</h2>')
+        .replace(/\n\n/g, '</p><p class="mb-3">')
+        .replace(/\n/g, '<br/>');
+    };
+
+   const filteredReleases = weeklyReleases.filter(item =>
+     activeTab === "movies" ? item.type === "movie" : item.type === "tv"
+   );
   // Share functionality
   const generateShareContent = (item) => {
     const baseContent = {
@@ -411,118 +526,10 @@ export default function Home() {
     </section>
   );
 
-  // Fetch weekly releases on component mount
-  useEffect(() => {
-    fetchWeeklyReleases();
-  }, []);
 
-  const fetchWeeklyReleases = async () => {
-    setWeeklyLoading(true);
-    try {
-      const res = await fetch('/api/movieAgents?weekly=true', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (res.ok) {
-        const data = await res.json();
-        setWeeklyReleases(data.releases || []);
-      }
-    } catch (err) {
-      console.error("Error fetching weekly releases:", err);
-    } finally {
-      setWeeklyLoading(false);
-    }
-  };
 
-  // Updated handleSubmit function
-  const handleSubmit = async (searchQuery, searchType) => {
-    if (!searchQuery || !searchQuery.trim()) {
-      setError("Please enter a search query");
-      return;
-    }
 
-    setLoading(true);
-    setResponse([]);
-    setError("");
-
-    try {
-      const res = await fetch(
-        `/api/movieAgents?query=${encodeURIComponent(searchQuery)}&type=${searchType}`,
-        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
-      );
-
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-
-      const results = data.releases || data.movies || [];
-      setResponse(results);
-
-      if (results.length === 0) {
-        setError("No results found. Try a different search term.");
-      }
-
-    } catch (err) {
-      console.error("Error fetching movies:", err);
-      setError(`Failed to fetch results: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !loading) {
-      handleSubmit(query,type);
-    }
-  };
-
-  const handleSuggestedQuestion = (question, questionType) => {
-    setQuery(question);
-    setType(questionType);
-    handleSubmit(question, questionType); // Pass values directly
-    // Auto-submit after a brief delay to show the update
-  };
-
-  const handleBackToHome = () => {
-    setQuery("");
-    setResponse([]);
-    setError("");
-    setType("movie");
-    // Clear URL parameters
-    window.history.pushState({}, '', window.location.pathname);
-  };
-
-  // Scroll to bottom when response updates
-  useEffect(() => {
-    if (response.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [response]);
-
-  // Clear error when user starts typing
-  useEffect(() => {
-    if (query.trim() && error) {
-      setError("");
-    }
-  }, [query]);
-
-  const renderReviewContent = (reviewText) => {
-    if (!reviewText || reviewText === "No reviews available") {
-      return <p className="text-gray-400">No reviews available</p>;
-    }
-
-    // Convert markdown-like formatting to HTML
-    const formatReview = (text) => {
-      return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em class="text-yellow-400">$1</em>')
-        .replace(/###\s*(.*?)$/gm, '<h3 class="text-lg font-semibold text-purple-300 mb-2">$1</h3>')
-        .replace(/##\s*(.*?)$/gm, '<h2 class="text-xl font-bold text-purple-300 mb-3">$1</h2>')
-        .replace(/\n\n/g, '</p><p class="mb-3">')
-        .replace(/\n/g, '<br/>');
-    };
 
     return (
       <div
@@ -534,9 +541,7 @@ export default function Home() {
     );
   };
 
-  const filteredReleases = weeklyReleases.filter(item =>
-    activeTab === "movies" ? item.type === "movie" : item.type === "tv"
-  );
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
