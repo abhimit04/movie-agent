@@ -19,6 +19,18 @@ import {
   Check
 } from "lucide-react";
 
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const searchQuery = params.get('search');
+  const searchType = params.get('type') || 'movie';
+
+  if (searchQuery) {
+    setQuery(searchQuery);
+    setType(searchType);
+    handleSubmit(searchQuery, searchType); // auto-fetch results
+  }
+}, []);
+
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [query, setQuery] = useState("");
