@@ -382,11 +382,12 @@ async function fetchOMDBDetails(title, year = "") {
 
 // -------------------------------
 // List query (Tavily -> Gemini JSON) + OMDB enrichment
-async function handleListQuery(res, query, page = 1, pageSize = 3) {
+async function handleListQuery(res, query, page = 1, pageSize = 5) {
   try {
     console.log("Handling list query:", query);
     const searchResult = await callTavilyAPI(query);
-    const searchContent = (searchResult.results || [])
+    const resultsArray = Array.isArray(searchResult.results) ? searchResult.results : [];
+    const searchContent = resultsArray
       .slice(0, 10) // top 10
       .map(r => r.content)
       .join("\n\n");
@@ -394,7 +395,7 @@ async function handleListQuery(res, query, page = 1, pageSize = 3) {
 
     // Ask Gemini to return JSON list
     const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
-    Important : List down not more than 10 results
+    Important : List down not more than 10 results.
 Search Results:
 ${searchContent}
 
@@ -409,7 +410,7 @@ Return ONLY valid JSON with this format:
     console.log("Gemini returned releases:", (parsed.releases || []).length);
 
     // Enrich each with OMDB (if possible)
-    const enriched = [];
+    const enriched = await Promise.all(parsed.releases.map(async (r) => {
     const seen = new Set();
     for (const r of (parsed.releases || [])) {
       const title = r.title;
@@ -435,9 +436,11 @@ Return ONLY valid JSON with this format:
         rating: omdb?.imdbRating || r.rating || null,
         //source: omdb ? "Gemini+OMDB" : "Gemini",
       });
+
+    }
     }
 
-    return res.status(200).json({ releases: paginateArray(page, pageSize) });
+    return res.status(200).json({ releases: paginateArray(enriched, page, pageSize) });
   } catch (err) {
     console.error("List query error:", err);
     return res.status(200).json({ releases: [] });
