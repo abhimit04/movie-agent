@@ -382,7 +382,7 @@ async function fetchOMDBDetails(title, year = "") {
 
 // -------------------------------
 // List query (Tavily -> Gemini JSON) + OMDB enrichment
-async function handleListQuery(res, query, page = 1, pageSize = 5) {
+async function handleListQuery(res, query, page = 1, pageSize = 3) {
   try {
     console.log("Handling list query:", query);
     const searchResult = await callTavilyAPI(query);
@@ -390,7 +390,7 @@ async function handleListQuery(res, query, page = 1, pageSize = 5) {
 
     // Ask Gemini to return JSON list
     const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
-
+    Important : List down not more than 10 results
 Search Results:
 ${searchContent}
 
