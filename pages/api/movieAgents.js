@@ -125,7 +125,62 @@ function isWithinDays(dateStr, days = 10) {
   const diff = (now - releaseDate) / (1000 * 60 * 60 * 24); // days difference
   return diff >= 0 && diff <= days;
 }
-// Weekly releases handler (using TMDB instead of Tavily+Gemini)
+
+const GENRES = {
+  movie: {
+    28: "Action",
+    12: "Adventure",
+    16: "Animation",
+    35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
+    18: "Drama",
+    10751: "Family",
+    14: "Fantasy",
+    36: "History",
+    27: "Horror",
+    10402: "Music",
+    9648: "Mystery",
+    10749: "Romance",
+    878: "Science Fiction",
+    10770: "TV Movie",
+    53: "Thriller",
+    10752: "War",
+    37: "Western",
+  },
+  tv: {
+    10759: "Action & Adventure",
+    16: "Animation",
+    35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
+    18: "Drama",
+    10751: "Family",
+    10762: "Kids",
+    9648: "Mystery",
+    10763: "News",
+    10764: "Reality",
+    10765: "Sci-Fi & Fantasy",
+    10766: "Soap",
+    10767: "Talk",
+    10768: "War & Politics",
+    37: "Western",
+  }
+};
+
+function isWithinDays(dateStr, days = 10) {
+  if (!dateStr) return false;
+  const releaseDate = new Date(dateStr);
+  const now = new Date();
+  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24); // days difference
+  return diff >= 0 && diff <= days;
+}
+
+function mapGenres(ids, type) {
+  if (!ids || ids.length === 0) return null;
+  return ids.map(id => GENRES[type][id] || `Unknown(${id})`).join(", ");
+}
+
 async function handleWeeklyReleases(res, page = 1) {
   try {
     const TMDB_API_KEY = process.env.TMDB_API_KEY;
@@ -151,9 +206,9 @@ async function handleWeeklyReleases(res, page = 1) {
           title: m.title,
           type: "movie",
           release_date: m.release_date,
-          platform: "Theaters/OTT" // TMDB doesn’t separate directly
-          //genre: (m.genre_ids || []).join(", "),
-          //rating: m.vote_average ? `${m.vote_average}/10` : null
+          platform: "Theaters/OTT",
+          genre: mapGenres(m.genre_ids, "movie"),
+          rating: m.vote_average ? `${m.vote_average}/10` : null
         })),
       ...(tvData.results || [])
         .filter(t => isWithinDays(t.first_air_date, 10))
@@ -162,8 +217,8 @@ async function handleWeeklyReleases(res, page = 1) {
           type: "tv",
           release_date: t.first_air_date,
           platform: "OTT/TV",
-          //genre: (t.genre_ids || []).join(", "),
-          //rating: t.vote_average ? `${t.vote_average}/10` : null
+          genre: mapGenres(t.genre_ids, "tv"),
+          rating: t.vote_average ? `${t.vote_average}/10` : null
         }))
     ];
 
