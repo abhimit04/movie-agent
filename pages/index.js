@@ -147,15 +147,6 @@ export default function Home() {
     const encodedReview = encodeURIComponent(item.reviews_summary || '');
     const url = `${window.location.origin}?title=${encodeURIComponent(item.title)}&type=${item.type || 'movie'}&review=${encodedReview}`;
 
-    return {
-      ...baseContent,
-      url,
-      shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ''}`,
-      fullText: item.reviews_summary,
-    };
-  };
-
-
     // For specific movies with reviews
     if (item.reviews_summary && item.reviews_summary !== "No reviews available") {
       const cleanReview = item.reviews_summary
@@ -170,7 +161,8 @@ export default function Home() {
         type: 'review',
         shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} - ${cleanReview.substring(0, 100)}...`,
         fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Platform: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}\n\n📝 Review:\n${cleanReview}`,
-        hashtags: '#MovieReview #Entertainment #Movies'
+        hashtags: '#MovieReview #Entertainment #Movies',
+        url
       };
     }
     // For list items
@@ -180,10 +172,12 @@ export default function Home() {
         type: 'recommendation',
         shortText: `Check out ${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} on ${item.platform || 'streaming'}`,
         fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Available on: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}${item.description ? `\n📖 ${item.description}` : ''}`,
-        hashtags: '#Movies #Streaming #Entertainment'
+        hashtags: '#Movies #Streaming #Entertainment',
+        url
       };
     }
   };
+
 
   const handleShare = (item) => {
     const content = generateShareContent(item);
