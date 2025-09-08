@@ -19,17 +19,6 @@ import {
   Check
 } from "lucide-react";
 
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const searchQuery = params.get('search');
-  const searchType = params.get('type') || 'movie';
-
-  if (searchQuery) {
-    setQuery(searchQuery);
-    setType(searchType);
-    handleSubmit(searchQuery, searchType); // auto-fetch results
-  }
-}, []);
 
 export default function Home() {
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -47,6 +36,25 @@ export default function Home() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareContent, setShareContent] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const searchQuery = params.get('search');
+    const searchType = params.get('type') || 'movie';
+
+    if (searchQuery) {
+      setQuery(searchQuery);
+      setType(searchType);
+
+      handleSubmit(searchQuery, searchType).then(() => {
+        // Scroll to the results after a short delay
+        setTimeout(() => {
+          resultRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      });
+    }
+  }, []);
+
 
   const features = [
     {
