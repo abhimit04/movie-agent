@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import fetch from "node-fetch";
+
 
 // 🔑 API Keys
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
