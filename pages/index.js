@@ -571,7 +571,7 @@ export default function Home() {
               />
             </div>
             <button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit(query, type)}
               disabled={loading || !query.trim()}
               className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
