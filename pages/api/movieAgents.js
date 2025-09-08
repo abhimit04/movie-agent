@@ -118,28 +118,60 @@ Reply with just one word: LIST or SPECIFIC`;
   return result.trim().toUpperCase() === "LIST";
 }
 
-// Weekly releases
-async function handleWeeklyReleases(res, page = 1, pageSize = 5) {
+// Weekly releases handler (using TMDB instead of Tavily+Gemini)
+async function handleWeeklyReleases(res, page = 1) {
   try {
-    const searchResult = await callTavilyAPI("latest movies and TV shows released in India this week");
-    const searchContent = searchResult.results.map(r => r.content).join("\n\n");
+    const TMDB_API_KEY = process.env.TMDB_API_KEY;
+    if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
 
-    const geminiPrompt = `Summarize into JSON with format:
-{
-  "releases": [
-    { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "" }
-  ]
-}
-Input:
-${searchContent}`;
+    // Movies now playing in India
+    const movieRes = await fetch(
+      `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`
+    );
+    const movieData = await movieRes.json();
 
-    const geminiResponse = await callGemini(geminiPrompt);
-    const parsedData = safeParseJSON(geminiResponse) || { releases: [] };
+    // TV shows currently airing
+    const tvRes = await fetch(
+      `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&language=en-IN&page=${page}`
+    );
+    const tvData = await tvRes.json();
 
-    return res.status(200).json({ releases: paginateArray(parsedData.releases, page, pageSize) });
+    // Normalize results
+    const releases = [
+      ...(movieData.results || []).map(m => ({
+        title: m.title,
+        type: "movie",
+        release_date: m.release_date,
+        platform: "Theaters",
+        genre: (m.genre_ids || []).join(", "), // optional: map to names
+        rating: m.vote_average ? `${m.vote_average}/10` : null
+      })),
+      ...(tvData.results || []).map(t => ({
+        title: t.name,
+        type: "tv",
+        release_date: t.first_air_date,
+        platform: "TV/OTT",
+        genre: (t.genre_ids || []).join(", "),
+        rating: t.vote_average ? `${t.vote_average}/10` : null
+      }))
+    ];
+
+    return res.status(200).json({
+      page,
+      total_pages: Math.max(movieData.total_pages, tvData.total_pages),
+      releases
+    });
   } catch (error) {
     console.error("Weekly releases error:", error);
-    return res.status(200).json({ releases: [] });
+    return res.status(200).json({
+      releases: [],
+      search_hints: {
+        found_results: false,
+        suggestions: [
+          "Unable to fetch this week's releases. Please try again later."
+        ]
+      }
+    });
   }
 }
 
