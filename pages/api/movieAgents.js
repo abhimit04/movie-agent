@@ -349,7 +349,7 @@ async function fetchOMDBDetails(title, year = "") {
          rating: omdb?.imdbRating || (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
          runtime: omdb?.runtime || null,
          platform,
-         type: "movie"
+         type: "movie",
          providers: providersList || null,
          source: omdb ? "TMDB+OMDB" : "TMDB.now_playing",
        };
