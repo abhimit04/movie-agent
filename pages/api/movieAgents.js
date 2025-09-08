@@ -160,17 +160,39 @@ const GENRES = {
   }
 };
 
+function mapGenres(ids, type) {
+  if (!ids || ids.length === 0) return null;
+  return ids.map(id => GENRES[type][id] || `Unknown(${id})`).join(", ");
+}
+
 function isWithinDays(dateStr, days = 10) {
   if (!dateStr) return false;
   const releaseDate = new Date(dateStr);
   const now = new Date();
-  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24); // days difference
+  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= days;
 }
 
-function mapGenres(ids, type) {
-  if (!ids || ids.length === 0) return null;
-  return ids.map(id => GENRES[type][id] || `Unknown(${id})`).join(", ");
+async function fetchOMDBDetails(title) {
+  try {
+    const OMDB_API_KEY = process.env.OMDB_API_KEY;
+    if (!OMDB_API_KEY) return null;
+
+    const omdbRes = await fetch(
+      `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`
+    );
+    const omdbData = await omdbRes.json();
+    if (omdbData.Response === "False") return null;
+
+    return {
+      imdbRating: omdbData.imdbRating !== "N/A" ? omdbData.imdbRating : null,
+      genre: omdbData.Genre !== "N/A" ? omdbData.Genre : null,
+      platform: omdbData.Type === "movie" ? "Theaters/OTT" : "OTT/TV"
+    };
+  } catch (err) {
+    console.error("OMDB fetch error:", err);
+    return null;
+  }
 }
 
 async function handleWeeklyReleases(res, page = 1) {
@@ -178,29 +200,28 @@ async function handleWeeklyReleases(res, page = 1) {
     const TMDB_API_KEY = process.env.TMDB_API_KEY;
     if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
 
-    // Fetch movies now playing in India
+    // Movies (India)
     const movieRes = await fetch(
       `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`
     );
     const movieData = await movieRes.json();
 
-    // Fetch TV shows currently airing
+    // TV shows
     const tvRes = await fetch(
       `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&language=en-IN&page=${page}`
     );
     const tvData = await tvRes.json();
 
-    // Normalize + filter for last 10 days
-    const releases = [
+    let rawReleases = [
       ...(movieData.results || [])
         .filter(m => isWithinDays(m.release_date, 10))
         .map(m => ({
           title: m.title,
           type: "movie",
           release_date: m.release_date,
-          platform: "Theaters/OTT",
-          genre: mapGenres(m.genre_ids, "movie"),
-          rating: m.vote_average ? `${m.vote_average}/10` : null
+          rating: m.vote_average ? `${m.vote_average}/10 (TMDB)` : null,
+          genre: m.genre_ids || [],
+          platform: "Theaters/OTT"
         })),
       ...(tvData.results || [])
         .filter(t => isWithinDays(t.first_air_date, 10))
@@ -208,11 +229,33 @@ async function handleWeeklyReleases(res, page = 1) {
           title: t.name,
           type: "tv",
           release_date: t.first_air_date,
-          platform: "OTT/TV",
-          genre: mapGenres(t.genre_ids, "tv"),
-          rating: t.vote_average ? `${t.vote_average}/10` : null
+          rating: t.vote_average ? `${t.vote_average}/10 (TMDB)` : null,
+          genre: t.genre_ids || [],
+          platform: "OTT/TV"
         }))
     ];
+
+    // Enrich with OMDB (and deduplicate)
+    const seen = new Set();
+    const releases = [];
+    for (const item of rawReleases) {
+      const key = item.title.toLowerCase();
+      if (seen.has(key)) continue; // skip duplicates
+      seen.add(key);
+
+      const omdb = await fetchOMDBDetails(item.title);
+
+      releases.push({
+        title: item.title,
+        type: item.type,
+        release_date: item.release_date,
+        genre: omdb?.genre || item.genre,
+        platform: omdb?.platform || item.platform,
+        rating: omdb?.imdbRating
+          ? `${omdb.imdbRating}/10 (IMDb)`
+          : item.rating
+      });
+    }
 
     return res.status(200).json({
       page,
