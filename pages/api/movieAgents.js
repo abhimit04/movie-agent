@@ -421,19 +421,19 @@ Return ONLY valid JSON with this format:
         if (!isNaN(d)) year = d.getFullYear() + "";
       }
 
-      const omdb = await fetchOMDBDetails(title, year);
-      enriched.push({
-        title,
-        type: r.type || null,
-        platform: omdb?.platform || r.platform || null,
-        release_date: r.release_date || null,
-        genre: omdb?.genre || r.genre || null,
-        rating: omdb?.imdbRating || r.rating || null,
-        source: omdb ? "Gemini+OMDB" : "Gemini",
-      });
+//      const omdb = await fetchOMDBDetails(title, year);
+//      enriched.push({
+//        title,
+//        type: r.type || null,
+//        platform: omdb?.platform || r.platform || null,
+//        release_date: r.release_date || null,
+//        genre: omdb?.genre || r.genre || null,
+//        rating: omdb?.imdbRating || r.rating || null,
+//        source: omdb ? "Gemini+OMDB" : "Gemini",
+//      });
     }
 
-    return res.status(200).json({ releases: paginateArray(enriched, page, pageSize) });
+    return res.status(200).json({ releases: paginateArray(page, pageSize) });
   } catch (err) {
     console.error("List query error:", err);
     return res.status(200).json({ releases: [] });
