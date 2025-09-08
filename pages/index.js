@@ -442,7 +442,7 @@ export default function Home() {
   };
 
   // Updated handleSubmit function
-  const handleSubmit = async (searchQuery = query, searchType = type) => {
+  const handleSubmit = async (searchQuery, searchType) => {
     if (!searchQuery || !searchQuery.trim()) {
       setError("Please enter a search query");
       return;
@@ -455,48 +455,17 @@ export default function Home() {
     try {
       const res = await fetch(
         `/api/movieAgents?query=${encodeURIComponent(searchQuery)}&type=${searchType}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
       );
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      console.log('API Response:', data); // Debug log
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // Handle both response types: list queries (releases) and specific queries (movies)
-      let results = [];
-
-      if (data.releases) {
-        // List query response (Netflix shows, top movies, etc.)
-        results = data.releases;
-        console.log('List query results:', results.length);
-      } else if (data.movies) {
-        // Specific query response (individual movie details)
-        results = data.movies;
-        console.log('Specific query results:', results.length);
-      }
-
+      const results = data.releases || data.movies || [];
       setResponse(results);
 
-      // Show search hints if available
-      if (data.search_hints && !data.search_hints.found_results) {
-        const suggestions = data.search_hints.suggestions.join(' • ');
-        setError(`Suggestions: ${suggestions}`);
-      }
-
       if (results.length === 0) {
-        setError("No results found. Try a different search term i.e movie name or Top movies on netflix.");
+        setError("No results found. Try a different search term.");
       }
 
     } catch (err) {
@@ -610,7 +579,7 @@ export default function Home() {
               />
             </div>
             <button
-              onClick={handleSubmit}
+              onClick={handleSubmit(query,type)}
               disabled={loading || !query.trim()}
               className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
