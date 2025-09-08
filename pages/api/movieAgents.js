@@ -281,7 +281,7 @@ async function fetchOMDBDetails(title, year = "") {
 /// Weekly releases: now playing + OMDB enrichment + platform classification
  async function fetchWeeklyReleases({ days = 10, page = 1 } = {}) {
    // Preload genre map
-   await getTmdbGenreMap();
+//   await getTmdbGenreMap();
 
    // 1) Fetch now playing movies in India
    const nowPage = await fetchTMDBNowPlaying(page);
