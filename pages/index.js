@@ -48,7 +48,6 @@ export default function Home() {
       setType(typeParam);
 
       if (review) {
-        // Show summary directly from URL
         setResponse([
           {
             title,
@@ -60,8 +59,8 @@ export default function Home() {
           },
         ]);
       } else {
-        // Normal standalone search
-        handleSubmit(title, typeParam);
+        // Delay slightly to ensure query & type are set
+        setTimeout(() => handleSubmit(title, typeParam), 0);
       }
     }
   }, []);
