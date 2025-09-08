@@ -386,7 +386,11 @@ async function handleListQuery(res, query, page = 1, pageSize = 3) {
   try {
     console.log("Handling list query:", query);
     const searchResult = await callTavilyAPI(query);
-    const searchContent = (searchResult.results || []).map(r => r.content).join("\n\n");
+    const searchContent = (searchResult.results || [])
+      .slice(0, 10) // top 10
+      .map(r => r.content)
+      .join("\n\n");
+
 
     // Ask Gemini to return JSON list
     const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
@@ -421,16 +425,16 @@ Return ONLY valid JSON with this format:
         if (!isNaN(d)) year = d.getFullYear() + "";
       }
 
-//      const omdb = await fetchOMDBDetails(title, year);
-//      enriched.push({
-//        title,
-//        type: r.type || null,
-//        platform: omdb?.platform || r.platform || null,
-//        release_date: r.release_date || null,
-//        genre: omdb?.genre || r.genre || null,
-//        rating: omdb?.imdbRating || r.rating || null,
-//        source: omdb ? "Gemini+OMDB" : "Gemini",
-//      });
+      const omdb = await fetchOMDBDetails(title, year);
+      enriched.push({
+        title,
+        type: r.type || null,
+        platform: omdb?.platform || r.platform || null,
+        release_date: r.release_date || null,
+        genre: omdb?.genre || r.genre || null,
+        rating: omdb?.imdbRating || r.rating || null,
+        //source: omdb ? "Gemini+OMDB" : "Gemini",
+      });
     }
 
     return res.status(200).json({ releases: paginateArray(page, pageSize) });
