@@ -176,13 +176,27 @@ function isWithinDays(dateStr, days = 10) {
 async function fetchOMDBDetails(title) {
   try {
     const OMDB_API_KEY = process.env.OMDB_API_KEY;
-    if (!OMDB_API_KEY) return null;
+    if (!OMDB_API_KEY) {
+      console.warn("⚠️ OMDB_API_KEY is missing in environment variables.");
+      return null;
+    }
 
-    const omdbRes = await fetch(
-      `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`
-    );
+    const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`;
+    console.log(`🔎 Fetching OMDB for title: "${title}" → ${url}`);
+
+    const omdbRes = await fetch(url);
     const omdbData = await omdbRes.json();
-    if (omdbData.Response === "False") return null;
+
+    if (omdbData.Response === "False") {
+      console.warn(`❌ OMDB: No data found for "${title}". Full response:`, omdbData);
+      return null;
+    }
+
+    console.log(`✅ OMDB data for "${title}":`, {
+      imdbRating: omdbData.imdbRating,
+      genre: omdbData.Genre,
+      type: omdbData.Type
+    });
 
     return {
       imdbRating: omdbData.imdbRating !== "N/A" ? omdbData.imdbRating : null,
@@ -190,10 +204,11 @@ async function fetchOMDBDetails(title) {
       platform: omdbData.Type === "movie" ? "Theaters/OTT" : "OTT/TV"
     };
   } catch (err) {
-    console.error("OMDB fetch error:", err);
+    console.error(`🔥 OMDB fetch error for "${title}":`, err);
     return null;
   }
 }
+
 
 async function handleWeeklyReleases(res, page = 1) {
   try {
