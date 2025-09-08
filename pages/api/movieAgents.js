@@ -200,7 +200,7 @@ Cast: ${safeJoin(knowledgeGraph.cast?.map(c => c.name))}
 Director: ${safeJoin(knowledgeGraph.director)}
 Platforms: ${safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name))}
 Rating: ${rating}
-Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Use markdown for formatting.`;
+Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Important : Ignore the missing data and do not include in summary. Use markdown for formatting.`;
 
     const reviewSummary = await callGemini(geminiSummaryPrompt);
 
