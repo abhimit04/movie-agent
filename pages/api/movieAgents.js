@@ -61,7 +61,28 @@ function isWithinDays(dateStr, days = 10) {
   const diff = (now - releaseDate) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= days;
 }
+// TMDB Genre mapping helper
+let TMDB_GENRE_MAP = null;
 
+async function getTmdbGenreMap() {
+  if (TMDB_GENRE_MAP) return TMDB_GENRE_MAP;
+  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+  if (!TMDB_API_KEY) throw new Error("Missing TMDB_API_KEY");
+
+  const url = `https://api.themoviedb.org/3/genre/movie/list?api_key=${TMDB_API_KEY}&language=en-IN`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch TMDB genres");
+  const data = await res.json();
+  TMDB_GENRE_MAP = {};
+  data.genres.forEach(g => { TMDB_GENRE_MAP[g.id] = g.name; });
+  return TMDB_GENRE_MAP;
+}
+
+function mapGenreIdsToNames(ids) {
+  if (!ids || !Array.isArray(ids)) return null;
+  if (!TMDB_GENRE_MAP) return ids.join(", "); // fallback
+  return ids.map(i => TMDB_GENRE_MAP[i]).filter(Boolean).join(", ");
+}
 // -------------------------------
 // External API wrappers
 async function callTavilyAPI(query) {
@@ -281,7 +302,7 @@ async function fetchOMDBDetails(title, year = "") {
 /// Weekly releases: now playing + OMDB enrichment + platform classification
  async function fetchWeeklyReleases({ days = 10, page = 1 } = {}) {
    // Preload genre map
-//   await getTmdbGenreMap();
+   await getTmdbGenreMap();
 
    // 1) Fetch now playing movies in India
    const nowPage = await fetchTMDBNowPlaying(page);
