@@ -457,7 +457,7 @@ export default function Home() {
       }
 
       if (results.length === 0) {
-        setError("No results found. Try a different search term.");
+        setError("No results found. Try a different search term i.e movie name or Top movies on netflix.");
       }
 
     } catch (err) {
