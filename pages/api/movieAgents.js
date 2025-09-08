@@ -142,17 +142,17 @@ async function handleWeeklyReleases(res, page = 1) {
         title: m.title,
         type: "movie",
         release_date: m.release_date,
-        platform: "Theaters",
-        genre: (m.genre_ids || []).join(", "), // optional: map to names
-        rating: m.vote_average ? `${m.vote_average}/10` : null
+        platform: "Theaters"
+        //genre: (m.genre_ids || []).join(", "), // optional: map to names
+        //rating: m.vote_average ? `${m.vote_average}/10` : null
       })),
       ...(tvData.results || []).map(t => ({
         title: t.name,
         type: "tv",
         release_date: t.first_air_date,
         platform: "TV/OTT",
-        genre: (t.genre_ids || []).join(", "),
-        rating: t.vote_average ? `${t.vote_average}/10` : null
+        //genre: (t.genre_ids || []).join(", "),
+        //rating: t.vote_average ? `${t.vote_average}/10` : null
       }))
     ];
 
