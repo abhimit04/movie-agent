@@ -43,21 +43,29 @@ export default function Home() {
     const typeParam = params.get('type') || 'movie';
     const review = params.get('review');
 
-    if (title && review) {
+    if (title) {
       setQuery(title);
       setType(typeParam);
-      setResponse([
-        {
-          title,
-          type: typeParam,
-          reviews_summary: decodeURIComponent(review),
-          rating: params.get('rating') || null,
-          platform: params.get('platform') || null,
-          genre: params.get('genre') || null,
-        },
-      ]);
+
+      if (review) {
+        // Show summary directly from URL
+        setResponse([
+          {
+            title,
+            type: typeParam,
+            reviews_summary: decodeURIComponent(review),
+            rating: params.get('rating') || null,
+            platform: params.get('platform') || null,
+            genre: params.get('genre') || null,
+          },
+        ]);
+      } else {
+        // Normal standalone search
+        handleSubmit(title, typeParam);
+      }
     }
   }, []);
+
 
 
 
