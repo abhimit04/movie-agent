@@ -457,7 +457,19 @@ Return ONLY valid JSON with this format:
 async function handleSpecificQuery(res, query) {
   try {
     console.log("Handling specific query:", query);
-    const serpResult = await callSerpAPI(query);
+
+    // List of common suffix words to ignore
+    const ignoreWords = ["review", "analysis", "plot", "summary", "critique", "rating", "discussion"];
+
+    // Build dynamic regex to remove these words from query
+    const ignoreRegex = new RegExp(`\\b(${ignoreWords.join("|")})\\b`, "gi");
+
+    // Clean query
+    const cleanedQuery = query.replace(ignoreRegex, "").trim();
+
+    console.log("Cleaned query for lookup:", cleanedQuery);
+
+    const serpResult = await callSerpAPI(cleanedQuery);
     const knowledgeGraph = serpResult.knowledge_graph;
     const relatedSearches = serpResult.related_searches?.map(s => s.query) || [];
     console.log("SerpAPI knowledgeGraph:", !!knowledgeGraph, "related:", relatedSearches.length);
@@ -473,23 +485,20 @@ async function handleSpecificQuery(res, query) {
       });
     }
 
-    // try OMDB if rating missing
+    // Try OMDB if rating missing
     let rating = knowledgeGraph.rating || null;
     if (!rating) {
       try {
         const omdb = await fetchOMDBDetails(knowledgeGraph.title, knowledgeGraph.year || "");
         rating = omdb?.imdbRating || null;
-        if (omdb) {
-          console.log("OMDB provided rating for specific query:", omdb.imdbRating);
-        }
+        if (omdb) console.log("OMDB provided rating:", omdb.imdbRating);
       } catch (err) {
         console.warn("OMDB fallback failed:", err);
       }
     }
 
-    // Build Gemini prompt for review; user asked earlier to ignore missing data
+    // Build Gemini prompt
     const geminiSummaryPrompt = `Based on the following search result data, provide a comprehensive summary and review.
-
 Search Result Data:
 Title: ${knowledgeGraph.title}
 Description: ${knowledgeGraph.description || ""}
@@ -506,7 +515,7 @@ Write a detailed review summary of the movie/show "${knowledgeGraph.title}". Foc
     try {
       reviewSummary = await callGemini(geminiSummaryPrompt);
     } catch (err) {
-      console.warn("Gemini summarisation failed for specific query; falling back to description.");
+      console.warn("Gemini summarisation failed; falling back to description.");
       reviewSummary = knowledgeGraph.description || "";
     }
 
@@ -529,11 +538,15 @@ Write a detailed review summary of the movie/show "${knowledgeGraph.title}". Foc
     };
 
     return res.status(200).json({ movies: [result] });
+
   } catch (err) {
     console.error("Specific query error:", err);
     return res.status(200).json({
       movies: [],
-      search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] }
+      search_hints: {
+        found_results: false,
+        suggestions: ["No results found. Just add the movie name or check spelling or add year."]
+      }
     });
   }
 }
