@@ -48,7 +48,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 function getGeminiModel() {
-  return genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
 // OMDB fallback helper
