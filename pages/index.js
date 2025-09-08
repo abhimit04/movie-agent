@@ -351,9 +351,7 @@ export default function Home() {
   const ShareModal = () => {
     if (!shareModalOpen || !shareContent) return null;
 
-    const filteredReleases = weeklyReleases.filter(item =>
-         activeTab === "movies" ? item.type === "movie" : item.type === "tv"
-       );
+
 
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -543,7 +541,9 @@ export default function Home() {
     );
   };
 
-
+  const filteredReleases = weeklyReleases.filter(item =>
+         activeTab === "movies" ? item.type === "movie" : item.type === "tv"
+       );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
