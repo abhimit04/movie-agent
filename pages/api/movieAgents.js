@@ -385,17 +385,17 @@ async function fetchOMDBDetails(title, year = "") {
 async function handleListQuery(res, query, page = 1, pageSize = 5) {
   try {
     console.log("Handling list query:", query);
+
     const searchResult = await callTavilyAPI(query);
     const resultsArray = Array.isArray(searchResult.results) ? searchResult.results : [];
     const searchContent = resultsArray
-      .slice(0, 10) // top 10
+      .slice(0, 10) // top 10 results
       .map(r => r.content)
       .join("\n\n");
 
-
     // Ask Gemini to return JSON list
     const geminiPrompt = `Summarize the following search results into a JSON array of movie/show releases.
-    Important : List down not more than 10 results.
+Important: List down not more than 10 results.
 Search Results:
 ${searchContent}
 
@@ -405,42 +405,47 @@ Return ONLY valid JSON with this format:
     { "title": "", "type": "movie/tv", "platform": "", "release_date": "", "genre": "", "rating": "" }
   ]
 }`;
+
     const geminiResponse = await callGemini(geminiPrompt);
     const parsed = safeParseJSON(geminiResponse) || { releases: [] };
     console.log("Gemini returned releases:", (parsed.releases || []).length);
 
-    // Enrich each with OMDB (if possible)
-    const enriched = await Promise.all(parsed.releases.map(async (r) => {
     const seen = new Set();
-    for (const r of (parsed.releases || [])) {
-      const title = r.title;
-      if (!title) continue;
-      const key = title.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
 
-      // try to extract year from release_date if available
-      let year = "";
-      if (r.release_date) {
-        const d = new Date(r.release_date);
-        if (!isNaN(d)) year = d.getFullYear() + "";
-      }
+    // Enrich releases with OMDB in parallel
+    const enriched = await Promise.all(
+      (parsed.releases || []).map(async (r) => {
+        const title = r.title;
+        if (!title) return null;
 
-      const omdb = await fetchOMDBDetails(title, year);
-      enriched.push({
-        title,
-        type: r.type || null,
-        platform: omdb?.platform || r.platform || null,
-        release_date: r.release_date || null,
-        genre: omdb?.genre || r.genre || null,
-        rating: omdb?.imdbRating || r.rating || null,
-        //source: omdb ? "Gemini+OMDB" : "Gemini",
-      });
+        const key = title.toLowerCase();
+        if (seen.has(key)) return null;
+        seen.add(key);
 
-    }
-    }
+        // Extract year from release_date
+        let year = "";
+        if (r.release_date) {
+          const d = new Date(r.release_date);
+          if (!isNaN(d)) year = d.getFullYear() + "";
+        }
 
-    return res.status(200).json({ releases: paginateArray(enriched, page, pageSize) });
+        const omdb = await fetchOMDBDetails(title, year);
+        return {
+          title,
+          type: r.type || null,
+          platform: omdb?.platform || r.platform || null,
+          release_date: r.release_date || null,
+          genre: omdb?.genre || r.genre || null,
+          rating: omdb?.imdbRating || r.rating || null,
+          // source: omdb ? "Gemini+OMDB" : "Gemini",
+        };
+      })
+    );
+
+    // Remove nulls from duplicates
+    const finalReleases = enriched.filter(Boolean);
+
+    return res.status(200).json({ releases: paginateArray(finalReleases, page, pageSize) });
   } catch (err) {
     console.error("List query error:", err);
     return res.status(200).json({ releases: [] });
