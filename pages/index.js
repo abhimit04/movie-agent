@@ -39,21 +39,26 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const searchQuery = params.get('search');
-    const searchType = params.get('type') || 'movie';
+    const title = params.get('title');
+    const typeParam = params.get('type') || 'movie';
+    const review = params.get('review');
 
-    if (searchQuery) {
-      setQuery(searchQuery);
-      setType(searchType);
-
-      handleSubmit(searchQuery, searchType).then(() => {
-        // Scroll to the results after a short delay
-        setTimeout(() => {
-          resultRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 300);
-      });
+    if (title && review) {
+      setQuery(title);
+      setType(typeParam);
+      setResponse([
+        {
+          title,
+          type: typeParam,
+          reviews_summary: decodeURIComponent(review),
+          rating: params.get('rating') || null,
+          platform: params.get('platform') || null,
+          genre: params.get('genre') || null,
+        },
+      ]);
     }
   }, []);
+
 
 
   const features = [
@@ -135,8 +140,21 @@ export default function Home() {
       rating: item.rating,
       platform: item.platform,
       genre: item.genre,
-      url: `${window.location.origin}?search=${encodeURIComponent(item.title)}&type=${item.type || type}`
+      reviews_summary: item.reviews_summary,
     };
+
+    // Encode the review in URL
+    const encodedReview = encodeURIComponent(item.reviews_summary || '');
+    const url = `${window.location.origin}?title=${encodeURIComponent(item.title)}&type=${item.type || 'movie'}&review=${encodedReview}`;
+
+    return {
+      ...baseContent,
+      url,
+      shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ''}`,
+      fullText: item.reviews_summary,
+    };
+  };
+
 
     // For specific movies with reviews
     if (item.reviews_summary && item.reviews_summary !== "No reviews available") {
