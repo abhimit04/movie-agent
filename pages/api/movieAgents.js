@@ -1,4 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
+
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const OMDB_API_KEY = process.env.OMDB_API_KEY;
 
 // Tavily API helper
 async function callTavilyAPI(query) {
@@ -49,6 +53,98 @@ if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 function getGeminiModel() {
   return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+}
+async function fetchTMDBReleases() {
+  const today = new Date();
+  const tenDaysAgo = new Date();
+  tenDaysAgo.setDate(today.getDate() - 10);
+
+  const fromDate = tenDaysAgo.toISOString().split("T")[0];
+  const toDate = today.toISOString().split("T")[0];
+
+  const tmdbUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&primary_release_date.gte=${fromDate}&primary_release_date.lte=${toDate}&sort_by=release_date.desc`;
+  console.log("🎬 Fetching TMDB releases:", tmdbUrl);
+
+  const res = await fetch(tmdbUrl);
+  const data = await res.json();
+
+  return (data.results || []).map(movie => ({
+    title: movie.title,
+    releaseDate: movie.release_date,
+    genres: movie.genre_ids || [],
+    overview: movie.overview,
+    rating: movie.vote_average || null,
+    source: "TMDB",
+  }));
+}
+async function fetchOMDBReleases(candidateTitles) {
+  if (!OMDB_API_KEY) {
+    console.warn("⚠️ OMDB_API_KEY missing in environment variables.");
+    return [];
+  }
+
+  const results = [];
+
+  for (const title of candidateTitles) {
+    try {
+      const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(
+        title
+      )}`;
+      console.log(`🔎 OMDB checking "${title}" → ${url}`);
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.Response === "True") {
+        const releaseDate = new Date(data.Released);
+        const today = new Date();
+        const tenDaysAgo = new Date();
+        tenDaysAgo.setDate(today.getDate() - 10);
+
+        if (releaseDate >= tenDaysAgo && releaseDate <= today) {
+          console.log(
+            `✅ OMDB new release: ${data.Title} (${data.Released})`
+          );
+          results.push({
+            title: data.Title,
+            releaseDate: data.Released,
+            genres: data.Genre?.split(", ") || [],
+            overview: data.Plot !== "N/A" ? data.Plot : null,
+            rating: data.imdbRating !== "N/A" ? data.imdbRating : null,
+            platform: data.Type === "movie" ? "Theaters/OTT" : "OTT/TV",
+            source: "OMDB",
+          });
+        }
+      } else {
+        console.warn(`❌ OMDB: No match for "${title}"`, data);
+      }
+    } catch (err) {
+      console.error(`🔥 OMDB fetch error for "${title}":`, err);
+    }
+  }
+
+  return results;
+}
+async function fetchWeeklyReleases() {
+  const tmdbReleases = await fetchTMDBReleases();
+  const candidateTitles = tmdbReleases.map(r => r.title);
+
+  const omdbReleases = await fetchOMDBReleases(candidateTitles);
+
+  // Merge & deduplicate by title
+  const all = [...tmdbReleases, ...omdbReleases];
+  const unique = [];
+  const seen = new Set();
+
+  for (const item of all) {
+    const key = item.title?.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(item);
+    }
+  }
+
+  return unique;
 }
 
 // OMDB fallback helper
@@ -385,6 +481,19 @@ export default async function handler(req, res) {
   const { query, weekly, page = 1, pageSize = 5 } = req.query;
   const pageNum = parseInt(page, 10) || 1;
   const pageLimit = parseInt(pageSize, 10) || 5;
+
+  try {
+      if (req.query.query === "weekly") {
+        const releases = await fetchWeeklyReleases();
+        return res.status(200).json({ releases });
+      }
+
+      return res.status(400).json({ error: "Invalid query" });
+    } catch (error) {
+      console.error("❌ Weekly releases error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
 
   try {
     if (weekly === "true") return handleWeeklyReleases(res, pageNum, pageLimit);
