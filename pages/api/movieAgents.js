@@ -189,69 +189,69 @@ async function fetchOMDBDetails(title, year = "") {
     return null;
   }
 }
+async function fetchTMDBNowPlaying(page = 1) {
+
+  if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+
+  const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`;
+  console.log("🎬 Fetching TMDB now playing (India):", url);
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TMDB now playing fetch failed: ${res.status}`);
+  return res.json();
+}
 
 // -------------------------------
 // Weekly releases: TMDB discovery + OMDB enrichment + dedupe
 async function fetchWeeklyReleases({ days = 10, page = 1 } = {}) {
-  // 1) TMDB movies
-  const moviePage = await fetchTMDBMoviesByDateRange(days, page);
-  const movies = (moviePage.results || []).filter(m => m.release_date && isWithinDays(m.release_date, days))
-    .map(m => ({
-      title: m.title,
-      type: "movie",
-      release_date: m.release_date,
-      tmdb_genre_ids: m.genre_ids || [],
-      overview: m.overview || null,
-      tmdb_rating: m.vote_average ? `${m.vote_average}/10 (TMDB)` : null,
-      source: "TMDB",
-    }));
+  // Preload genre map
+  await getTmdbGenreMap();
 
-  // 2) TMDB TV (on the air) then filter by first_air_date within range
-  const tvPage = await fetchTMDBTVByDateRange(days, page);
-  const tvs = (tvPage.results || []).filter(t => t.first_air_date && isWithinDays(t.first_air_date, days))
-    .map(t => ({
-      title: t.name,
-      type: "tv",
-      release_date: t.first_air_date,
-      tmdb_genre_ids: t.genre_ids || [],
-      overview: t.overview || null,
-      tmdb_rating: t.vote_average ? `${t.vote_average}/10 (TMDB)` : null,
-      source: "TMDB",
-    }));
+  // 1) Fetch now playing movies in India
+  const nowPage = await fetchTMDBNowPlaying(page);
+  const nowMoviesRaw = nowPage.results || [];
 
-  // Combine seed list
-  const seed = [...movies, ...tvs];
-  console.log("TMDB seed count:", seed.length);
+  // 2) Filter movies by release date (last `days` days only)
+  const recentMovies = nowMoviesRaw.filter(m =>
+    m.release_date && isWithinDays(m.release_date, days)
+  );
 
-  // Enrich each seed item with OMDB using title + year (year from release_date if present)
-  const unique = [];
-  const seen = new Set();
+  console.log(`Now playing total: ${nowMoviesRaw.length}, after filtering (<=${days} days): ${recentMovies.length}`);
 
-  for (const item of seed) {
-    const key = item.title?.toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
+  // 3) Enrich results with providers (OTT detection), OMDB, genre names
+  const result = [];
+  for (const m of recentMovies) {
+    try {
+      const providers = await fetchTMDBProviders(m.id);
+      const platform = (providers && providers.length) ? `OTT (${providers.join(", ")})` : "Theaters";
 
-    const year = item.release_date ? (new Date(item.release_date).getFullYear() + "") : "";
-    const omdb = await fetchOMDBDetails(item.title, year);
+      const year = m.release_date ? (new Date(m.release_date).getFullYear() + "") : "";
+      const omdb = await fetchOMDBDetails(m.title, year);
 
-    const merged = {
-      title: item.title,
-      type: item.type,
-      release_date: item.release_date,
-      overview: item.overview,
-      genre: omdb?.genre || null,
-      rating: omdb?.imdbRating || item.tmdb_rating || null,
-      runtime: omdb?.runtime || null,
-      platform: omdb?.platform || (item.type === "movie" ? "Theaters/OTT" : "OTT/TV"),
-      source: omdb ? "TMDB+OMDB" : item.source,
-    };
+      const mappedGenres = mapGenreIdsToNames(m.genre_ids);
 
-    console.log("Weekly merged item:", merged.title, merged.release_date, "rating:", merged.rating);
-    unique.push(merged);
+      const merged = {
+        id: m.id,
+        title: m.title,
+        release_date: m.release_date,
+        overview: m.overview || null,
+        genre: omdb?.genre || mappedGenres || null,
+        rating: omdb?.imdbRating || (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
+        runtime: omdb?.runtime || null,
+        platform: omdb?.platform || platform,
+        providers: providers || null,
+        source: omdb ? "TMDB+OMDB" : "TMDB.now_playing",
+      };
+
+      console.log("Weekly movie:", merged.title, "| released:", merged.release_date, "| platform:", merged.platform);
+      result.push(merged);
+    } catch (err) {
+      console.error("Error enriching movie", m.title, err);
+    }
   }
 
-  return unique;
+  console.log("Weekly final count:", result.length);
+  return result;
 }
 
 // -------------------------------
