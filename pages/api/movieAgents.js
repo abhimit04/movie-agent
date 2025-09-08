@@ -1,6 +1,6 @@
 // /pages/api/movieAgents.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import fetch from "node-fetch";
+
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const TMDB_KEY = process.env.TMDB_API_KEY;
