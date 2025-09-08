@@ -117,14 +117,6 @@ Reply with just one word: LIST or SPECIFIC`;
   const result = await callGemini(systemPrompt);
   return result.trim().toUpperCase() === "LIST";
 }
-// Helper: check if date is within last N days
-function isWithinDays(dateStr, days = 10) {
-  if (!dateStr) return false;
-  const releaseDate = new Date(dateStr);
-  const now = new Date();
-  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24); // days difference
-  return diff >= 0 && diff <= days;
-}
 
 const GENRES = {
   movie: {
