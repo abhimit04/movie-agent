@@ -1,12 +1,55 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
 
+// 🔑 API Keys
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+const SERPAPI_KEY = process.env.SERPAPI_KEY;
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Tavily API helper
+// 🧠 Gemini setup
+if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+function getGeminiModel() {
+  return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+}
+
+// ---------------------------
+// 📌 Utilities
+// ---------------------------
+function isWithinDays(dateStr, days = 10) {
+  if (!dateStr) return false;
+  const releaseDate = new Date(dateStr);
+  const now = new Date();
+  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= days;
+}
+
+function safeJoin(value) {
+  if (!value) return null;
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object" && value.name) return value.name;
+  return String(value);
+}
+
+function safeParseJSON(str) {
+  try {
+    return JSON.parse(str.replace(/```json\s*|```/g, "").trim());
+  } catch {
+    return null;
+  }
+}
+
+function paginateArray(arr, page = 1, pageSize = 5) {
+  const start = (page - 1) * pageSize;
+  return arr.slice(start, start + pageSize);
+}
+
+// ---------------------------
+// 🌐 External API Wrappers
+// ---------------------------
 async function callTavilyAPI(query) {
-  const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
   if (!TAVILY_API_KEY) throw new Error("Missing Tavily API key");
 
   const response = await fetch("https://api.tavily.com/search", {
@@ -28,13 +71,10 @@ async function callTavilyAPI(query) {
     const errorDetails = await response.json().catch(() => ({}));
     throw new Error(errorDetails.detail || `Tavily API failed: ${response.status}`);
   }
-
   return response.json();
 }
 
-// SerpAPI helper
 async function callSerpAPI(query) {
-  const SERPAPI_KEY = process.env.SERPAPI_KEY;
   if (!SERPAPI_KEY) throw new Error("Missing SerpAPI key");
 
   const url = new URL("https://serpapi.com/search.json");
@@ -47,13 +87,17 @@ async function callSerpAPI(query) {
   return response.json();
 }
 
-// Gemini setup
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-function getGeminiModel() {
-  return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+async function callGemini(prompt) {
+  const model = getGeminiModel();
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
+  return (await result.response).text();
 }
+
+// ---------------------------
+// 🎬 TMDB Releases
+// ---------------------------
 async function fetchTMDBReleases() {
   const today = new Date();
   const tenDaysAgo = new Date();
@@ -77,227 +121,33 @@ async function fetchTMDBReleases() {
     source: "TMDB",
   }));
 }
-async function fetchOMDBReleases(candidateTitles) {
+
+// ---------------------------
+// 🎥 OMDB Helpers
+// ---------------------------
+async function fetchOMDBDetails(title, year = "") {
   if (!OMDB_API_KEY) {
-    console.warn("⚠️ OMDB_API_KEY missing in environment variables.");
-    return [];
-  }
-
-  const results = [];
-
-  for (const title of candidateTitles) {
-    try {
-      const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(
-        title
-      )}`;
-      console.log(`🔎 OMDB checking "${title}" → ${url}`);
-
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.Response === "True") {
-        const releaseDate = new Date(data.Released);
-        const today = new Date();
-        const tenDaysAgo = new Date();
-        tenDaysAgo.setDate(today.getDate() - 10);
-
-        if (releaseDate >= tenDaysAgo && releaseDate <= today) {
-          console.log(
-            `✅ OMDB new release: ${data.Title} (${data.Released})`
-          );
-          results.push({
-            title: data.Title,
-            releaseDate: data.Released,
-            genres: data.Genre?.split(", ") || [],
-            overview: data.Plot !== "N/A" ? data.Plot : null,
-            rating: data.imdbRating !== "N/A" ? data.imdbRating : null,
-            platform: data.Type === "movie" ? "Theaters/OTT" : "OTT/TV",
-            source: "OMDB",
-          });
-        }
-      } else {
-        console.warn(`❌ OMDB: No match for "${title}"`, data);
-      }
-    } catch (err) {
-      console.error(`🔥 OMDB fetch error for "${title}":`, err);
-    }
-  }
-
-  return results;
-}
-async function fetchWeeklyReleases() {
-  const tmdbReleases = await fetchTMDBReleases();
-  const candidateTitles = tmdbReleases.map(r => r.title);
-
-  const omdbReleases = await fetchOMDBReleases(candidateTitles);
-
-  // Merge & deduplicate by title
-  const all = [...tmdbReleases, ...omdbReleases];
-  const unique = [];
-  const seen = new Set();
-
-  for (const item of all) {
-    const key = item.title?.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(item);
-    }
-  }
-
-  return unique;
-}
-
-// OMDB fallback helper
-async function callOMDBAPI(title, year = "") {
-  const OMDB_API_KEY = process.env.OMDB_API_KEY;
-  if (!OMDB_API_KEY) throw new Error("Missing OMDB API key");
-
-  const url = new URL("https://www.omdbapi.com/");
-  url.searchParams.append("apikey", OMDB_API_KEY);
-  url.searchParams.append("t", title);
-  if (year) url.searchParams.append("y", year);
-
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`OMDB API failed: ${response.status}`);
-  const data = await response.json();
-
-  if (data && data.Response === "True") {
-    return {
-      rating: data.imdbRating !== "N/A" ? `${data.imdbRating}/10` : null,
-      votes: data.imdbVotes !== "N/A" ? data.imdbVotes : null,
-      runtime: data.Runtime !== "N/A" ? data.Runtime : null,
-    };
-  }
-  return { rating: null, votes: null, runtime: null };
-}
-
-// Gemini helper
-async function callGemini(prompt, systemPrompt = "") {
-  const model = getGeminiModel();
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: systemPrompt + prompt }] }],
-  });
-  return (await result.response).text();
-}
-
-// Normalize array/string fields
-function safeJoin(value) {
-  if (!value) return null;
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "object" && value.name) return value.name;
-  return String(value);
-}
-
-// Safe JSON parse
-function safeParseJSON(str) {
-  try {
-    return JSON.parse(str.replace(/```json\s*|```/g, "").trim());
-  } catch (err) {
+    console.warn("⚠️ OMDB_API_KEY missing");
     return null;
   }
-}
 
-// Pagination helper
-function paginateArray(arr, page = 1, pageSize = 5) {
-  const start = (page - 1) * pageSize;
-  return arr.slice(start, start + pageSize);
-}
-
-// Classify query (LIST vs SPECIFIC)
-async function classifyQuery(query) {
-  const systemPrompt = `Is this query asking for multiple items/recommendations (LIST)
-or about one specific movie/show (SPECIFIC)?
-Query: "${query}"
-Reply with just one word: LIST or SPECIFIC`;
-
-  const result = await callGemini(systemPrompt);
-  return result.trim().toUpperCase() === "LIST";
-}
-
-const GENRES = {
-  movie: {
-    28: "Action",
-    12: "Adventure",
-    16: "Animation",
-    35: "Comedy",
-    80: "Crime",
-    99: "Documentary",
-    18: "Drama",
-    10751: "Family",
-    14: "Fantasy",
-    36: "History",
-    27: "Horror",
-    10402: "Music",
-    9648: "Mystery",
-    10749: "Romance",
-    878: "Science Fiction",
-    10770: "TV Movie",
-    53: "Thriller",
-    10752: "War",
-    37: "Western",
-  },
-  tv: {
-    10759: "Action & Adventure",
-    16: "Animation",
-    35: "Comedy",
-    80: "Crime",
-    99: "Documentary",
-    18: "Drama",
-    10751: "Family",
-    10762: "Kids",
-    9648: "Mystery",
-    10763: "News",
-    10764: "Reality",
-    10765: "Sci-Fi & Fantasy",
-    10766: "Soap",
-    10767: "Talk",
-    10768: "War & Politics",
-    37: "Western",
-  }
-};
-
-function mapGenres(ids, type) {
-  if (!ids || ids.length === 0) return null;
-  return ids.map(id => GENRES[type][id] || `Unknown(${id})`).join(", ");
-}
-
-function isWithinDays(dateStr, days = 10) {
-  if (!dateStr) return false;
-  const releaseDate = new Date(dateStr);
-  const now = new Date();
-  const diff = (now - releaseDate) / (1000 * 60 * 60 * 24);
-  return diff >= 0 && diff <= days;
-}
-
-async function fetchOMDBDetails(title) {
   try {
-    const OMDB_API_KEY = process.env.OMDB_API_KEY;
-    if (!OMDB_API_KEY) {
-      console.warn("⚠️ OMDB_API_KEY is missing in environment variables.");
+    const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}${year ? `&y=${year}` : ""}`;
+    console.log(`🔎 OMDB fetching: ${url}`);
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.Response === "False") {
+      console.warn(`❌ OMDB: No data for "${title}"`, data);
       return null;
     }
-
-    const url = `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`;
-    console.log(`🔎 Fetching OMDB for title: "${title}" → ${url}`);
-
-    const omdbRes = await fetch(url);
-    const omdbData = await omdbRes.json();
-
-    if (omdbData.Response === "False") {
-      console.warn(`❌ OMDB: No data found for "${title}". Full response:`, omdbData);
-      return null;
-    }
-
-    console.log(`✅ OMDB data for "${title}":`, {
-      imdbRating: omdbData.imdbRating,
-      genre: omdbData.Genre,
-      type: omdbData.Type
-    });
 
     return {
-      imdbRating: omdbData.imdbRating !== "N/A" ? omdbData.imdbRating : null,
-      genre: omdbData.Genre !== "N/A" ? omdbData.Genre : null,
-      platform: omdbData.Type === "movie" ? "Theaters/OTT" : "OTT/TV"
+      imdbRating: data.imdbRating !== "N/A" ? data.imdbRating : null,
+      genre: data.Genre !== "N/A" ? data.Genre : null,
+      platform: data.Type === "movie" ? "Theaters/OTT" : "OTT/TV",
+      released: data.Released,
     };
   } catch (err) {
     console.error(`🔥 OMDB fetch error for "${title}":`, err);
@@ -305,90 +155,48 @@ async function fetchOMDBDetails(title) {
   }
 }
 
+// ---------------------------
+// 📅 Weekly Releases (TMDB + OMDB)
+// ---------------------------
+async function fetchWeeklyReleases() {
+  const tmdbReleases = await fetchTMDBReleases();
 
-async function handleWeeklyReleases(res, page = 1) {
-  try {
-    const TMDB_API_KEY = process.env.TMDB_API_KEY;
-    if (!TMDB_API_KEY) throw new Error("Missing TMDB API key");
+  const seen = new Set();
+  const releases = [];
 
-    // Movies (India)
-    const movieRes = await fetch(
-      `https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&language=en-IN&region=IN&page=${page}`
-    );
-    const movieData = await movieRes.json();
+  for (const item of tmdbReleases) {
+    const key = item.title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-    // TV shows
-    const tvRes = await fetch(
-      `https://api.themoviedb.org/3/tv/on_the_air?api_key=${TMDB_API_KEY}&language=en-IN&page=${page}`
-    );
-    const tvData = await tvRes.json();
+    const omdb = await fetchOMDBDetails(item.title);
 
-    let rawReleases = [
-      ...(movieData.results || [])
-        .filter(m => isWithinDays(m.release_date, 10))
-        .map(m => ({
-          title: m.title,
-          type: "movie",
-          release_date: m.release_date,
-          rating: m.vote_average ? `${m.vote_average}/10 (TMDB)` : null,
-          genre: m.genre_ids || [],
-          platform: "Theaters/OTT"
-        })),
-      ...(tvData.results || [])
-        .filter(t => isWithinDays(t.first_air_date, 10))
-        .map(t => ({
-          title: t.name,
-          type: "tv",
-          release_date: t.first_air_date,
-          rating: t.vote_average ? `${t.vote_average}/10 (TMDB)` : null,
-          genre: t.genre_ids || [],
-          platform: "OTT/TV"
-        }))
-    ];
-
-    // Enrich with OMDB (and deduplicate)
-    const seen = new Set();
-    const releases = [];
-    for (const item of rawReleases) {
-      const key = item.title.toLowerCase();
-      if (seen.has(key)) continue; // skip duplicates
-      seen.add(key);
-
-      const omdb = await fetchOMDBDetails(item.title);
-
-      releases.push({
-        title: item.title,
-        type: item.type,
-        release_date: item.release_date,
-        genre: omdb?.genre || item.genre,
-        platform: omdb?.platform || item.platform,
-        rating: omdb?.imdbRating
-          ? `${omdb.imdbRating}/10 (IMDb)`
-          : item.rating
-      });
-    }
-
-    return res.status(200).json({
-      page,
-      total_pages: Math.max(movieData.total_pages, tvData.total_pages),
-      releases
-    });
-  } catch (error) {
-    console.error("Weekly releases error:", error);
-    return res.status(200).json({
-      releases: [],
-      search_hints: {
-        found_results: false,
-        suggestions: [
-          "Unable to fetch this week's releases. Please try again later."
-        ]
-      }
+    releases.push({
+      title: item.title,
+      release_date: item.releaseDate,
+      genre: omdb?.genre || item.genres,
+      platform: omdb?.platform || "Theaters/OTT",
+      rating: omdb?.imdbRating || item.rating,
+      source: omdb ? "TMDB+OMDB" : "TMDB",
     });
   }
+
+  return releases.filter(r => isWithinDays(r.release_date, 10));
 }
 
-// List queries
-async function handleListQuery(res, query, page = 1, pageSize = 5) {
+// ---------------------------
+// 🤖 Query Handling
+// ---------------------------
+async function classifyQuery(query) {
+  const systemPrompt = `Is this query asking for multiple items/recommendations (LIST) or about one specific movie/show (SPECIFIC)?
+Query: "${query}"
+Reply with just one word: LIST or SPECIFIC`;
+
+  const result = await callGemini(systemPrompt);
+  return result.trim().toUpperCase() === "LIST";
+}
+
+async function handleListQuery(res, query, page, pageSize) {
   try {
     const searchResult = await callTavilyAPI(query);
     const searchContent = searchResult.results.map(r => r.content).join("\n\n");
@@ -413,7 +221,6 @@ Return ONLY valid JSON with this format:
   }
 }
 
-// Specific queries
 async function handleSpecificQuery(res, query) {
   try {
     const serpResult = await callSerpAPI(query);
@@ -422,16 +229,15 @@ async function handleSpecificQuery(res, query) {
 
     let rating = knowledgeGraph?.rating;
     if (!rating && knowledgeGraph?.title) {
-      try {
-        const omdbData = await callOMDBAPI(knowledgeGraph.title, knowledgeGraph.year);
-        rating = omdbData.rating;
-      } catch (err) {
-        console.error("OMDB fallback failed:", err);
-      }
+      const omdbData = await fetchOMDBDetails(knowledgeGraph.title, knowledgeGraph.year);
+      rating = omdbData?.imdbRating;
     }
 
     if (!knowledgeGraph || !knowledgeGraph.title) {
-      return res.status(200).json({ movies: [], search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] } });
+      return res.status(200).json({
+        movies: [],
+        search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] }
+      });
     }
 
     const geminiSummaryPrompt = `Based on the following search result data, provide a comprehensive summary and review.
@@ -444,7 +250,7 @@ Cast: ${safeJoin(knowledgeGraph.cast?.map(c => c.name))}
 Director: ${safeJoin(knowledgeGraph.director)}
 Platforms: ${safeJoin(knowledgeGraph.streaming_platforms?.map(p => p.name))}
 Rating: ${rating}
-Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Important : Ignore the missing data and do not include in summary. Use markdown for formatting.`;
+Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on the plot, performances, and audience reception. Important: Ignore missing data. Use markdown.`;
 
     const reviewSummary = await callGemini(geminiSummaryPrompt);
 
@@ -465,11 +271,16 @@ Write a detailed review summary of the movie "${knowledgeGraph.title}". Focus on
     });
   } catch (error) {
     console.error("Specific query error:", error);
-    return res.status(200).json({ movies: [], search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] } });
+    return res.status(200).json({
+      movies: [],
+      search_hints: { found_results: false, suggestions: ["No results found. Check spelling or add year."] }
+    });
   }
 }
 
-// Main handler
+// ---------------------------
+// 🚀 Main API Handler
+// ---------------------------
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -483,20 +294,11 @@ export default async function handler(req, res) {
   const pageLimit = parseInt(pageSize, 10) || 5;
 
   try {
-      if (req.query.query === "weekly") {
-        const releases = await fetchWeeklyReleases();
-        return res.status(200).json({ releases });
-      }
-
-      return res.status(400).json({ error: "Invalid query" });
-    } catch (error) {
-      console.error("❌ Weekly releases error:", error);
-      res.status(500).json({ error: "Server error" });
+    if (query === "weekly" || weekly === "true") {
+      const releases = await fetchWeeklyReleases();
+      return res.status(200).json({ releases });
     }
-  }
 
-  try {
-    if (weekly === "true") return handleWeeklyReleases(res, pageNum, pageLimit);
     if (!query || !query.trim()) return res.status(400).json({ error: "Query required" });
 
     const isListQuery = await classifyQuery(query);
