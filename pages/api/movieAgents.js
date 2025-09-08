@@ -319,7 +319,7 @@ async function fetchOMDBDetails(title, year = "") {
    const result = [];
    for (const m of recentMovies) {
      try {
-       // --- Detect release type (Theatrical / Digital) ---
+       // --- Detect release type (Theatrical / OTT) ---
        let platformType = await fetchTMDBReleaseTypes(m.id); // returns "Theatrical", "OTT", or "Unknown"
 
        // --- Fetch providers for OTT ---
@@ -334,59 +334,49 @@ async function fetchOMDBDetails(title, year = "") {
 
        // --- OMDB enrichment ---
        const year = m.release_date ? (new Date(m.release_date).getFullYear() + "") : "";
-       const omdb = await fetchOMDBDetails(m.title, year);
+       const omdb = await fetchOMDBDetails(m.title, year); // optional
 
        // --- Genres ---
        const mappedGenres = mapGenreIdsToNames(m.genre_ids);
 
        // --- Merge TMDB + OMDB ---
+       const merged = {
+         id: m.id,
+         title: m.title,
+         release_date: m.release_date,
+         overview: m.overview || null,
+         genre: omdb?.genre || mappedGenres || null,
+         rating: omdb?.imdbRating || (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
+         runtime: omdb?.runtime || null,
+         platform,
+         providers: providersList || null,
+         source: omdb ? "TMDB+OMDB" : "TMDB.now_playing",
+       };
 
-       for (const m of recentMovies) {
-         try {
-           const providers = await fetchTMDBProviders(m.id);
-           const platform = (providers && providers.length) ? `OTT (${providers.join(", ")})` : "Theatrical";
-
-           const year = m.release_date ? (new Date(m.release_date).getFullYear() + "") : "";
-           const omdb = await fetchOMDBDetails(m.title, year); // optional
-
-           const mappedGenres = mapGenreIdsToNames(m.genre_ids);
-
-           const merged = {
-             id: m.id,
-             title: m.title,
-             release_date: m.release_date,
-             overview: m.overview || null,
-             genre: omdb?.genre || mappedGenres || null,
-             rating: omdb?.imdbRating || (m.vote_average ? `${m.vote_average}/10 (TMDB)` : null),
-             runtime: omdb?.runtime || null,
-             platform,
-             providers: providers || null,
-             source: omdb ? "TMDB+OMDB" : "TMDB.now_playing",
-           };
-
-           console.log("🎬 Weekly movie:", merged.title, "| released:", merged.release_date, "| platform:", merged.platform);
-           result.push(merged);
-         } catch (err) {
-           console.error("❌ Error enriching movie", m.title, err);
-           // still include the movie with minimal info if OMDB or providers fail
-           result.push({
-             id: m.id,
-             title: m.title,
-             release_date: m.release_date,
-             overview: m.overview || null,
-             genre: mapGenreIdsToNames(m.genre_ids) || null,
-             rating: m.vote_average ? `${m.vote_average}/10 (TMDB)` : null,
-             runtime: null,
-             platform: "Unknown",
-             providers: null,
-             source: "TMDB.now_playing",
-           });
-         }
-       }
+       console.log("🎬 Weekly movie:", merged.title, "| released:", merged.release_date, "| platform:", merged.platform);
+       result.push(merged);
+     } catch (err) {
+       console.error("❌ Error enriching movie", m.title, err);
+       // still include the movie with minimal info if OMDB or providers fail
+       result.push({
+         id: m.id,
+         title: m.title,
+         release_date: m.release_date,
+         overview: m.overview || null,
+         genre: mapGenreIdsToNames(m.genre_ids) || null,
+         rating: m.vote_average ? `${m.vote_average}/10 (TMDB)` : null,
+         runtime: null,
+         platform: "Unknown",
+         providers: null,
+         source: "TMDB.now_playing",
+       });
+     }
+   }
 
    console.log("✅ Weekly final count:", result.length);
    return result;
  }
+
 
 // -------------------------------
 // List query (Tavily -> Gemini JSON) + OMDB enrichment
