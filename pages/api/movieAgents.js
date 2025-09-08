@@ -151,9 +151,9 @@ async function handleWeeklyReleases(res, page = 1) {
           title: m.title,
           type: "movie",
           release_date: m.release_date,
-          platform: "Theaters/OTT", // TMDB doesn’t separate directly
-          genre: (m.genre_ids || []).join(", "),
-          rating: m.vote_average ? `${m.vote_average}/10` : null
+          platform: "Theaters/OTT" // TMDB doesn’t separate directly
+          //genre: (m.genre_ids || []).join(", "),
+          //rating: m.vote_average ? `${m.vote_average}/10` : null
         })),
       ...(tvData.results || [])
         .filter(t => isWithinDays(t.first_air_date, 10))
@@ -162,8 +162,8 @@ async function handleWeeklyReleases(res, page = 1) {
           type: "tv",
           release_date: t.first_air_date,
           platform: "OTT/TV",
-          genre: (t.genre_ids || []).join(", "),
-          rating: t.vote_average ? `${t.vote_average}/10` : null
+          //genre: (t.genre_ids || []).join(", "),
+          //rating: t.vote_average ? `${t.vote_average}/10` : null
         }))
     ];
 
