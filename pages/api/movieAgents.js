@@ -183,7 +183,9 @@ async function fetchWeeklyReleases() {
 
   return releases.filter(r => isWithinDays(r.release_date, 10));
 }
-
+console.log("📅 Weekly releases from TMDB:", tmdbResults.length);
+console.log("🎬 Weekly releases from OMDB:", omdbResults.length);
+console.log("📦 Combined unique releases:", combined.length);
 // ---------------------------
 // 🤖 Query Handling
 // ---------------------------
