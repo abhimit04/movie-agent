@@ -1,253 +1,112 @@
 import { useState, useRef, useEffect } from "react";
- import {
-   Film,
-   Tv,
-   TrendingUp,
-   Sparkles,
-   Star,
-   Search,
-   Calendar,
-   Play,
-   MessageSquare,
-   Home as HomeIcon,
-   Share2,
-   Copy,
-   Twitter,
-   Facebook,
-   Link2,
-   Check,
- } from "lucide-react";
+import {
+  Film,
+  Tv,
+  TrendingUp,
+  Sparkles,
+  Star,
+  Search,
+  Calendar,
+  Play,
+  Clock,
+  MessageSquare,
+  Home as HomeIcon,
+  Share2,
+  Copy,
+  Twitter,
+  Facebook,
+  Link2,
+  Check
+} from "lucide-react";
 
- export default function Home() {
-   const [hoveredCard, setHoveredCard] = useState(null);
-   const [query, setQuery] = useState("");
-   const [type, setType] = useState("movie");
-   const [loading, setLoading] = useState(false);
-   const [response, setResponse] = useState([]);
-   const [error, setError] = useState("");
-   const [weeklyReleases, setWeeklyReleases] = useState([]);
-   const [weeklyLoading, setWeeklyLoading] = useState(false);
-   const [activeTab, setActiveTab] = useState("movies");
-   const messagesEndRef = useRef(null);
+export default function Home() {
+  const [hoveredCard, setHoveredCard] = useState(null);
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("movie");
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState([]);
+  const [error, setError] = useState("");
+  const [weeklyReleases, setWeeklyReleases] = useState([]);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("movies");
+  const messagesEndRef = useRef(null);
 
-   // Share functionality
-   const [shareModalOpen, setShareModalOpen] = useState(false);
-   const [shareContent, setShareContent] = useState(null);
-   const [copySuccess, setCopySuccess] = useState(false);
+  // Share functionality state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareContent, setShareContent] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
-   const features = [
-     {
-       icon: Film,
-       title: "Movie Reviews & Ratings",
-       description:
-         "Get comprehensive reviews and IMDB ratings for the latest theatrical releases",
-       gradient: "from-pink-500 to-red-500",
-     },
-     {
-       icon: Tv,
-       title: "OTT Platform Tracking",
-       description:
-         "Track new releases across Netflix, Prime Video, Disney+, and more",
-       gradient: "from-purple-500 to-violet-500",
-     },
-     {
-       icon: TrendingUp,
-       title: "Trending Entertainment",
-       description: "Stay updated with what's trending in movies and web series",
-       gradient: "from-blue-500 to-cyan-500",
-     },
-     {
-       icon: Sparkles,
-       title: "AI-Powered Insights",
-       description:
-         "Get intelligent recommendations and detailed entertainment analysis",
-       gradient: "from-emerald-500 to-green-500",
-     },
-   ];
+  const features = [
+    {
+      icon: Film,
+      title: "Movie Reviews & Ratings",
+      description:
+        "Get comprehensive reviews and IMDB ratings for the latest theatrical releases",
+      gradient: "from-pink-500 to-red-500"
+    },
+    {
+      icon: Tv,
+      title: "OTT Platform Tracking",
+      description:
+        "Track new releases across Netflix, Prime Video, Disney+, and more",
+      gradient: "from-purple-500 to-violet-500"
+    },
+    {
+      icon: TrendingUp,
+      title: "Trending Entertainment",
+      description:
+        "Stay updated with what's trending in movies and web series",
+      gradient: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: Sparkles,
+      title: "AI-Powered Insights",
+      description:
+        "Get intelligent recommendations and detailed entertainment analysis",
+      gradient: "from-emerald-500 to-green-500"
+    }
+  ];
 
-   const suggestedQuestions = [
-     {
-       icon: Play,
-       question: "Netflix shows this month",
-       type: "tv",
-       queryType: "list",
-     },
-     {
-       icon: Film,
-       question: "Top movies on Prime Video 2024",
-       type: "movie",
-       queryType: "list",
-     },
-     {
-       icon: TrendingUp,
-       question: "Best web series on Hotstar",
-       type: "tv",
-       queryType: "list",
-     },
-     {
-       icon: Calendar,
-       question: "New releases this week",
-       type: "movie",
-       queryType: "list",
-     },
-     {
-       icon: Star,
-       question: "Stree 2 movie review",
-       type: "movie",
-       queryType: "specific",
-     },
-     {
-       icon: MessageSquare,
-       question: "Inception analysis",
-       type: "tv",
-       queryType: "specific",
-     },
-   ];
-
-   // Handle URL query params
-   useEffect(() => {
-     const params = new URLSearchParams(window.location.search);
-     const title = params.get("title");
-     const typeParam = params.get("type") || "movie";
-     const review = params.get("review");
-
-     if (title) {
-       setQuery(title);
-       setType(typeParam);
-
-       if (review) {
-         setResponse([
-           {
-             title,
-             type: typeParam,
-             reviews_summary: decodeURIComponent(review),
-             rating: params.get("rating") || null,
-             platform: params.get("platform") || null,
-             genre: params.get("genre") || null,
-           },
-         ]);
-       } else {
-         setTimeout(() => handleSubmit(title, typeParam), 0);
-       }
-     }
-   }, []);
-
-   // Fetch weekly releases
-   useEffect(() => {
-     fetchWeeklyReleases();
-   }, []);
-
-   const fetchWeeklyReleases = async () => {
-     setWeeklyLoading(true);
-     try {
-       const res = await fetch("/api/movieAgents?weekly=true", {
-         method: "GET",
-         headers: { "Content-Type": "application/json" },
-       });
-       if (res.ok) {
-         const data = await res.json();
-         setWeeklyReleases(data.releases || []);
-       }
-     } catch (err) {
-       console.error("Error fetching weekly releases:", err);
-     } finally {
-       setWeeklyLoading(false);
-     }
-   };
-
-   const handleSubmit = async (searchQuery, searchType) => {
-     if (!searchQuery?.trim()) {
-       setError("Please enter a search query");
-       return;
-     }
-
-     setLoading(true);
-     setResponse([]);
-     setError("");
-
-     try {
-       const res = await fetch(
-         `/api/movieAgents?query=${encodeURIComponent(
-           searchQuery
-         )}&type=${searchType}`,
-         { method: "GET", headers: { "Content-Type": "application/json" } }
-       );
-       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-       const data = await res.json();
-       const results = data.releases || data.movies || [];
-       setResponse(results);
-
-       if (!results.length)
-         setError("No results found. Try a different search term.");
-     } catch (err) {
-       console.error("Error fetching movies:", err);
-       setError(`Failed to fetch results: ${err.message}`);
-     } finally {
-       setLoading(false);
-     }
-   };
-
-   const handleKeyPress = (e) => {
-     if (e.key === "Enter" && !loading) handleSubmit(query, type);
-   };
-
-   const handleSuggestedQuestion = (question, questionType) => {
-     setQuery(question);
-     setType(questionType);
-     handleSubmit(question, questionType);
-   };
-
-   const handleBackToHome = () => {
-     setQuery("");
-     setResponse([]);
-     setError("");
-     setType("movie");
-     window.history.pushState({}, "", window.location.pathname);
-   };
-
-   useEffect(() => {
-     if (response.length > 0)
-       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-   }, [response]);
-
-   useEffect(() => {
-     if (query.trim() && error) setError("");
-   }, [query]);
-
-   // Review rendering
-   const renderReviewContent = (reviewText) => {
-     if (!reviewText || reviewText === "No reviews available") {
-       return <p className="text-gray-400">No reviews available</p>;
-     }
-
-     const formatReview = (text) =>
-       text
-         .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-         .replace(/\*(.*?)\*/g, '<em class="text-yellow-400">$1</em>')
-         .replace(
-           /###\s*(.*?)$/gm,
-           '<h3 class="text-lg font-semibold text-purple-300 mb-2">$1</h3>'
-         )
-         .replace(
-           /##\s*(.*?)$/gm,
-           '<h2 class="text-xl font-bold text-purple-300 mb-3">$1</h2>'
-         )
-         .replace(/\n\n/g, '</p><p class="mb-3">')
-         .replace(/\n/g, "<br/>");
-
-     return (
-       <div
-         dangerouslySetInnerHTML={{
-           __html: `<p class="mb-3">${formatReview(reviewText)}</p>`,
-         }}
-       />
-     );
-   };
-
-   const filteredReleases = weeklyReleases.filter((item) =>
-     activeTab === "movies" ? item.type === "movie" : item.type === "tv"
-   );
+  const suggestedQuestions = [
+    // List queries - will use new list for
+    {
+      icon: Play,
+      question: "Netflix shows this month",
+      type: "tv",
+      queryType: "list"
+    },
+    {
+      icon: Film,
+      question: "Top movies on Prime Video 2024",
+      type: "movie",
+      queryType: "list"
+    },
+    {
+      icon: TrendingUp,
+      question: "Best web series on Hotstar",
+      type: "tv",
+      queryType: "list"
+    },
+    {
+      icon: Calendar,
+      question: "New releases this week",
+      type: "movie",
+      queryType: "list"
+    },
+    // Specific queries - will get detailed reviews
+    {
+      icon: Star,
+      question: "Stree 2 movie review",
+      type: "movie",
+      queryType: "specific"
+    },
+    {
+      icon: MessageSquare,
+      question: "Mirzapur Season 3 analysis",
+      type: "tv",
+      queryType: "specific"
+    }
+  ];
 
   // Share functionality
   const generateShareContent = (item) => {
@@ -256,41 +115,41 @@ import { useState, useRef, useEffect } from "react";
       rating: item.rating,
       platform: item.platform,
       genre: item.genre,
-      reviews_summary: item.reviews_summary
+      url: `${window.location.origin}?search=${encodeURIComponent(item.title)}&type=${item.type || type}`
     };
-    const encodedReview = encodeURIComponent(item.reviews_summary || "");
-    const url = `${window.location.origin}?title=${encodeURIComponent(item.title)}&type=${item.type || "movie"}&review=${encodedReview}`;
 
+    // For specific movies with reviews
     if (item.reviews_summary && item.reviews_summary !== "No reviews available") {
       const cleanReview = item.reviews_summary
-        .replace(/\*\*(.*?)\*\*/g, "$1")
-        .replace(/\*(.*?)\*/g, "$1")
-        .replace(/#{1,3}\s*/g, "")
-        .replace(/\n+/g, " ")
+        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
+        .replace(/\*(.*?)\*/g, '$1')     // Remove italic markdown
+        .replace(/#{1,3}\s*/g, '')       // Remove headers
+        .replace(/\n+/g, ' ')            // Replace newlines with spaces
         .trim();
 
       return {
         ...baseContent,
-        type: "review",
-        shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ""} - ${cleanReview.substring(0, 100)}...`,
-        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ""}${item.platform ? `📺 Platform: ${item.platform}\n` : ""}${item.genre ? `🎭 Genre: ${item.genre}\n` : ""}\n\n📝 Review:\n${cleanReview}`,
-        hashtags: "#MovieReview #Entertainment #Movies",
-        url
+        type: 'review',
+        shortText: `${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} - ${cleanReview.substring(0, 100)}...`,
+        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Platform: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}\n\n📝 Review:\n${cleanReview}`,
+        hashtags: '#MovieReview #Entertainment #Movies'
       };
-    } else {
+    }
+    // For list items
+    else {
       return {
         ...baseContent,
-        type: "recommendation",
-        shortText: `Check out ${item.title}${item.rating ? ` (${item.rating}⭐)` : ""} on ${item.platform || "streaming"}`,
-        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ""}${item.platform ? `📺 Available on: ${item.platform}\n` : ""}${item.genre ? `🎭 Genre: ${item.genre}\n` : ""}${item.description ? `\n📖 ${item.description}` : ""}`,
-        hashtags: "#Movies #Streaming #Entertainment",
-        url
+        type: 'recommendation',
+        shortText: `Check out ${item.title}${item.rating ? ` (${item.rating}⭐)` : ''} on ${item.platform || 'streaming'}`,
+        fullText: `🎬 ${item.title}\n${item.rating ? `⭐ Rating: ${item.rating}\n` : ''}${item.platform ? `📺 Available on: ${item.platform}\n` : ''}${item.genre ? `🎭 Genre: ${item.genre}\n` : ''}${item.description ? `\n📖 ${item.description}` : ''}`,
+        hashtags: '#Movies #Streaming #Entertainment'
       };
     }
   };
 
   const handleShare = (item) => {
-    setShareContent(generateShareContent(item));
+    const content = generateShareContent(item);
+    setShareContent(content);
     setShareModalOpen(true);
   };
 
@@ -300,42 +159,49 @@ import { useState, useRef, useEffect } from "react";
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      console.error('Failed to copy:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
   const shareToSocial = (platform) => {
     if (!shareContent) return;
+
+    let shareUrl = '';
     const encodedText = encodeURIComponent(shareContent.shortText);
     const encodedUrl = encodeURIComponent(shareContent.url);
-    let shareUrl = "";
 
     switch (platform) {
-      case "twitter":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}&hashtags=${encodeURIComponent(
-          shareContent.hashtags.replace(/#/g, "").replace(/\s/g, ",")
-        )}`;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}&hashtags=${encodeURIComponent(shareContent.hashtags.replace(/#/g, '').replace(/\s/g, ','))}`;
         break;
-      case "facebook":
+      case 'facebook':
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`;
         break;
-      case "whatsapp":
+      case 'whatsapp':
         shareUrl = `https://wa.me/?text=${encodedText}%20${encodedUrl}`;
         break;
-      case "telegram":
+      case 'telegram':
         shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
         break;
       default:
         return;
     }
 
-    window.open(shareUrl, "_blank", "width=600,height=400");
+    window.open(shareUrl, '_blank', 'width=600,height=400');
   };
 
+  // Share Modal Component
   const ShareModal = () => {
     if (!shareModalOpen || !shareContent) return null;
-
-
 
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -510,6 +376,163 @@ import { useState, useRef, useEffect } from "react";
     </section>
   );
 
+  // Fetch weekly releases on component mount
+  useEffect(() => {
+    fetchWeeklyReleases();
+  }, []);
+
+  const fetchWeeklyReleases = async () => {
+    setWeeklyLoading(true);
+    try {
+      const res = await fetch('/api/movieAgents?weekly=true', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setWeeklyReleases(data.releases || []);
+      }
+    } catch (err) {
+      console.error("Error fetching weekly releases:", err);
+    } finally {
+      setWeeklyLoading(false);
+    }
+  };
+
+  // Updated handleSubmit function
+  const handleSubmit = async (searchQuery = query, searchType = type) => {
+    if (!searchQuery || !searchQuery.trim()) {
+      setError("Please enter a search query");
+      return;
+    }
+
+    setLoading(true);
+    setResponse([]);
+    setError("");
+
+    try {
+      const res = await fetch(
+        `/api/movieAgents?query=${encodeURIComponent(searchQuery)}&type=${searchType}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log('API Response:', data); // Debug log
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Handle both response types: list queries (releases) and specific queries (movies)
+      let results = [];
+
+      if (data.releases) {
+        // List query response (Netflix shows, top movies, etc.)
+        results = data.releases;
+        console.log('List query results:', results.length);
+      } else if (data.movies) {
+        // Specific query response (individual movie details)
+        results = data.movies;
+        console.log('Specific query results:', results.length);
+      }
+
+      setResponse(results);
+
+      // Show search hints if available
+      if (data.search_hints && !data.search_hints.found_results) {
+        const suggestions = data.search_hints.suggestions.join(' • ');
+        setError(`Suggestions: ${suggestions}`);
+      }
+
+      if (results.length === 0) {
+        setError("No results found. Try a different search term.");
+      }
+
+    } catch (err) {
+      console.error("Error fetching movies:", err);
+      setError(`Failed to fetch results: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !loading) {
+      handleSubmit(query,type);
+    }
+  };
+
+  const handleSuggestedQuestion = (question, questionType) => {
+    setQuery(question);
+    setType(questionType);
+    handleSubmit(question, questionType); // Pass values directly
+    // Auto-submit after a brief delay to show the update
+  };
+
+  const handleBackToHome = () => {
+    setQuery("");
+    setResponse([]);
+    setError("");
+    setType("movie");
+    // Clear URL parameters
+    window.history.pushState({}, '', window.location.pathname);
+  };
+
+  // Scroll to bottom when response updates
+  useEffect(() => {
+    if (response.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [response]);
+
+  // Clear error when user starts typing
+  useEffect(() => {
+    if (query.trim() && error) {
+      setError("");
+    }
+  }, [query]);
+
+  const renderReviewContent = (reviewText) => {
+    if (!reviewText || reviewText === "No reviews available") {
+      return <p className="text-gray-400">No reviews available</p>;
+    }
+
+    // Convert markdown-like formatting to HTML
+    const formatReview = (text) => {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-yellow-400">$1</em>')
+        .replace(/###\s*(.*?)$/gm, '<h3 class="text-lg font-semibold text-purple-300 mb-2">$1</h3>')
+        .replace(/##\s*(.*?)$/gm, '<h2 class="text-xl font-bold text-purple-300 mb-3">$1</h2>')
+        .replace(/\n\n/g, '</p><p class="mb-3">')
+        .replace(/\n/g, '<br/>');
+    };
+
+    return (
+      <div
+        className="prose prose-invert max-w-none text-gray-300"
+        dangerouslySetInnerHTML={{
+          __html: `<p class="mb-3">${formatReview(reviewText)}</p>`
+        }}
+      />
+    );
+  };
+
+  const filteredReleases = weeklyReleases.filter(item =>
+    activeTab === "movies" ? item.type === "movie" : item.type === "tv"
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -548,7 +571,7 @@ import { useState, useRef, useEffect } from "react";
               />
             </div>
             <button
-              onClick={() => handleSubmit(query, type)}
+              onClick={handleSubmit}
               disabled={loading || !query.trim()}
               className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
