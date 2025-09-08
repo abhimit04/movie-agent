@@ -102,7 +102,7 @@ export default function Home() {
     },
     {
       icon: MessageSquare,
-      question: "Mirzapur Season 3 analysis",
+      question: " Inception analysis",
       type: "tv",
       queryType: "specific"
     }
